@@ -1,0 +1,5 @@
+resources:
+  - bases/usb-fabric.io_usbdevices.yaml
+  - bases/usb-fabric.io_usbdevicepolicies.yaml
+  - bases/usb-fabric.io_usbconnections.yaml
+  - bases/usb-fabric.io_usbdeviceapprovals.yaml

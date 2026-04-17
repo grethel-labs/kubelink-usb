@@ -1,0 +1,11 @@
+apiVersion: usb-fabric.io/v1alpha1
+kind: USBDeviceApproval
+metadata:
+  name: approval-node-a-zigbee-1a86-7523
+spec:
+  deviceRef:
+    name: node-a-zigbee-1a86-7523
+  requester: system:serviceaccount:home-automation:default
+  policyRef:
+    name: zigbee-policy
+    namespace: home-automation

@@ -1,0 +1,13 @@
+apiVersion: usb-fabric.io/v1alpha1
+kind: USBDevice
+metadata:
+  name: node-a-zigbee-1a86-7523
+spec:
+  busID: "1-1.2"
+  devicePath: "/dev/ttyUSB0"
+  nodeName: "node-a"
+  vendorID: "1a86"
+  productID: "7523"
+  serialNumber: "ABC123"
+  deviceClass: "serial"
+  description: "Sonoff ZigBee Dongle"

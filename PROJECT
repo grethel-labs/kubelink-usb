@@ -1,0 +1,16 @@
+domain: usb-fabric.io
+layout:
+- go.kubebuilder.io/v4
+projectName: k8s-usb-fabric
+repo: github.com/yourname/k8s-usb-fabric
+resources:
+- api:
+    crdVersion: v1
+    namespaced: false
+  controller: true
+  domain: usb-fabric.io
+  group: usb-fabric.io
+  kind: USBDevice
+  path: github.com/yourname/k8s-usb-fabric/api/v1alpha1
+  version: v1alpha1
+version: "3"
