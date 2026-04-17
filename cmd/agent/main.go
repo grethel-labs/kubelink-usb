@@ -6,7 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/yourname/k8s-usb-fabric/internal/agent"
+	"github.com/grethel-labs/kubelink-usb/internal/agent"
 )
 
 func main() {

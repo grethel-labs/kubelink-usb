@@ -1,4 +1,4 @@
-module github.com/yourname/k8s-usb-fabric
+module github.com/grethel-labs/kubelink-usb
 
 go 1.22.0
 

@@ -16,5 +16,5 @@ spec:
       serviceAccountName: default
       containers:
         - name: manager
-          image: ghcr.io/yourname/k8s-usb-fabric-controller:latest
+          image: ghcr.io/grethel-labs/kubelink-usb-controller:latest
           command: ["/manager"]

@@ -1,5 +1,5 @@
-IMG_CONTROLLER ?= ghcr.io/yourname/k8s-usb-fabric-controller:latest
-IMG_AGENT ?= ghcr.io/yourname/k8s-usb-fabric-agent:latest
+IMG_CONTROLLER ?= ghcr.io/grethel-labs/kubelink-usb-controller:latest
+IMG_AGENT ?= ghcr.io/grethel-labs/kubelink-usb-agent:latest
 
 .PHONY: build docker-build install run test fmt
 

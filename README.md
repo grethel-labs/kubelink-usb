@@ -1,4 +1,4 @@
-# Kubernetes USB-Fabric Operator (K8s-USBIP)
+# kubelink-usb (K8s-USBIP)
 
 This repository contains the initial scaffold for a Kubernetes operator and node agent that expose USB devices across nodes via USB/IP with a security-first approval flow.
 

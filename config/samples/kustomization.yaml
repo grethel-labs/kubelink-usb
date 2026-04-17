@@ -1,5 +1,5 @@
 resources:
-  - usb-fabric.io_v1alpha1_usbdevice.yaml
-  - usb-fabric.io_v1alpha1_usbdevicepolicy.yaml
-  - usb-fabric.io_v1alpha1_usbconnection.yaml
-  - usb-fabric.io_v1alpha1_usbdeviceapproval.yaml
+  - kubelink-usb.io_v1alpha1_usbdevice.yaml
+  - kubelink-usb.io_v1alpha1_usbdevicepolicy.yaml
+  - kubelink-usb.io_v1alpha1_usbconnection.yaml
+  - kubelink-usb.io_v1alpha1_usbdeviceapproval.yaml

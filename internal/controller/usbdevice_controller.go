@@ -11,10 +11,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	usbv1alpha1 "github.com/yourname/k8s-usb-fabric/api/v1alpha1"
+	usbv1alpha1 "github.com/grethel-labs/kubelink-usb/api/v1alpha1"
 )
 
-const usbDeviceFinalizer = "usb-fabric.io/cleanup-export"
+const usbDeviceFinalizer = "kubelink-usb.io/cleanup-export"
 
 // USBDeviceReconciler reconciles USBDevice objects.
 type USBDeviceReconciler struct {

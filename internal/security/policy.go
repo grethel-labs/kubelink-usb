@@ -1,6 +1,6 @@
 package security
 
-import usbv1alpha1 "github.com/yourname/k8s-usb-fabric/api/v1alpha1"
+import usbv1alpha1 "github.com/grethel-labs/kubelink-usb/api/v1alpha1"
 
 // Engine evaluates policy decisions for discovered devices.
 type Engine struct{}

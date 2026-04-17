@@ -1,4 +1,4 @@
-apiVersion: usb-fabric.io/v1alpha1
+apiVersion: kubelink-usb.io/v1alpha1
 kind: USBDeviceApproval
 metadata:
   name: approval-node-a-zigbee-1a86-7523

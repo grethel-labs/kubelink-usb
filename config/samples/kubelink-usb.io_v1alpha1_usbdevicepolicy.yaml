@@ -1,4 +1,4 @@
-apiVersion: usb-fabric.io/v1alpha1
+apiVersion: kubelink-usb.io/v1alpha1
 kind: USBDevicePolicy
 metadata:
   name: zigbee-policy

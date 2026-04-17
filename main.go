@@ -12,8 +12,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	usbv1alpha1 "github.com/yourname/k8s-usb-fabric/api/v1alpha1"
-	"github.com/yourname/k8s-usb-fabric/internal/controller"
+	usbv1alpha1 "github.com/grethel-labs/kubelink-usb/api/v1alpha1"
+	"github.com/grethel-labs/kubelink-usb/internal/controller"
 )
 
 var (
@@ -43,7 +43,7 @@ func main() {
 		Scheme:                 scheme,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "kubelink-usb.usb-fabric.io",
+		LeaderElectionID:       "kubelink-usb.kubelink-usb.io",
 		Metrics: metricsserver.Options{
 			BindAddress: metricsAddr,
 		},

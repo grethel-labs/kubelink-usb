@@ -1,15 +1,15 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: usbdevicepolicies.usb-fabric.io
+  name: usbconnections.kubelink-usb.io
 spec:
-  group: usb-fabric.io
+  group: kubelink-usb.io
   names:
-    kind: USBDevicePolicy
-    listKind: USBDevicePolicyList
-    plural: usbdevicepolicies
-    singular: usbdevicepolicy
-    shortNames: [usbp]
+    kind: USBConnection
+    listKind: USBConnectionList
+    plural: usbconnections
+    singular: usbconnection
+    shortNames: [usbconn]
   scope: Namespaced
   versions:
     - name: v1alpha1
