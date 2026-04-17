@@ -1,7 +1,7 @@
 IMG_CONTROLLER ?= ghcr.io/grethel-labs/kubelink-usb-controller:latest
 IMG_AGENT ?= ghcr.io/grethel-labs/kubelink-usb-agent:latest
 
-.PHONY: build docker-build install run test fmt
+.PHONY: build docker-build install run test test-cover coverage-check fmt
 
 fmt:
 	go fmt ./...
@@ -22,3 +22,9 @@ run:
 
 test:
 	go test ./...
+
+test-cover:
+	go test ./... -coverprofile=coverage.out -covermode=atomic
+
+coverage-check:
+	./hack/coverage-check.sh
