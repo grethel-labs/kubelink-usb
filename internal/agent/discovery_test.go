@@ -49,7 +49,8 @@ func TestLooksLikeUSBDevicePath(t *testing.T) {
 	}{
 		{name: "serial by id folder", path: "/dev/serial/by-id", want: true},
 		{name: "tty usb path", path: "/dev/ttyUSB0", want: true},
-		{name: "short tty base", path: "/dev/tty", want: true},
+		{name: "tty acm path", path: "/dev/ttyACM0", want: true},
+		{name: "short tty base", path: "/dev/tty", want: false},
 		{name: "unrelated path", path: "/dev/null", want: false},
 		{name: "non usb tmp path", path: "/tmp/device", want: false},
 	}

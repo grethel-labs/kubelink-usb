@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -109,5 +110,5 @@ func (d *Discovery) Run(ctx context.Context) error {
 
 func looksLikeUSBDevicePath(path string) bool {
 	base := filepath.Base(path)
-	return base == "by-id" || len(base) >= 3 && base[:3] == "tty"
+	return base == "by-id" || strings.HasPrefix(base, "ttyUSB") || strings.HasPrefix(base, "ttyACM")
 }
