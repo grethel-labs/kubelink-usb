@@ -51,9 +51,20 @@ This repository contains the initial scaffold for a Kubernetes operator and node
 
 GitHub Actions workflow `.github/workflows/unit-tests.yml` now validates:
 - unit tests (`make test`)
-- coverage gates (`make coverage-check`)
+- coverage gates (`make coverage-check`, overall minimum 80%)
 - binary builds (`make build`) with uploaded artifacts (`bin/controller`, `bin/agent`)
 - container image builds for controller and agent (`Dockerfile`, `Dockerfile.agent`)
+- generated documentation consistency (`make docs` + committed output)
+
+## Code documentation system
+
+- Unified commenting structure is defined in `docs/CODE_REFERENCE.md`.
+- Architecture/reference markdown is generated from code with:
+  ```bash
+  make docs
+  ```
+- Generated output (including Mermaid diagrams) is committed in:
+  - `docs/CODE_REFERENCE.md`
 
 ## Security highlights
 

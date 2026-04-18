@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-overall_min="${OVERALL_MIN_COVERAGE:-8}"
+overall_min="${OVERALL_MIN_COVERAGE:-80}"
 security_min="${SECURITY_MIN_COVERAGE:-80}"
 usbip_min="${USBIP_MIN_COVERAGE:-50}"
 

@@ -14,10 +14,22 @@ type ApprovalReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+// Reconcile handles USBDeviceApproval state transitions.
+//
+// Intent: Reserve reconciliation hook for approval workflow logic.
+// Inputs: Context and request identifier.
+// Outputs: Empty result with no requeue in scaffold state.
+// Errors: Returns nil in the current placeholder behavior.
 func (r *ApprovalReconciler) Reconcile(context.Context, ctrl.Request) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
+// SetupWithManager wires ApprovalReconciler into controller-runtime manager.
+//
+// Intent: Keep API-compatible hook point while approval logic is scaffolded.
+// Inputs: Controller-runtime manager.
+// Outputs: Nil in the current placeholder behavior.
+// Errors: Returns nil in the current placeholder behavior.
 func (r *ApprovalReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	_ = mgr
 	return nil

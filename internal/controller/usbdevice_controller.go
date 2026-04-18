@@ -22,6 +22,12 @@ type USBDeviceReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+// Reconcile converges USBDevice state, finalizer lifecycle, and bootstrap status.
+//
+// Intent: Keep discovered device objects in a predictable, policy-ready state.
+// Inputs: Request namespace/name and reconciliation context.
+// Outputs: Empty result without requeue for current steady-state logic.
+// Errors: Returns Kubernetes API or status update errors.
 func (r *USBDeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	var device usbv1alpha1.USBDevice
@@ -63,6 +69,12 @@ func (r *USBDeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	return ctrl.Result{}, nil
 }
 
+// SetupWithManager registers the USBDevice reconciler with the manager.
+//
+// Intent: Bind watch sources and reconciliation handler for USBDevice resources.
+// Inputs: Controller-runtime manager.
+// Outputs: Setup error when registration fails.
+// Errors: Propagates controller builder registration errors.
 func (r *USBDeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&usbv1alpha1.USBDevice{}).
