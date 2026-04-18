@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubelink-usb-controller
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kubelink-usb-controller
+  template:
+    metadata:
+      labels:
+        app: kubelink-usb-controller
+    spec:
+      serviceAccountName: default
+      containers:
+        - name: manager
+          image: ghcr.io/grethel-labs/kubelink-usb-controller:latest
+          command: ["/manager"]

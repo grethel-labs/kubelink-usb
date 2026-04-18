@@ -1,0 +1,5 @@
+resources:
+  - kubelink-usb.io_v1alpha1_usbdevice.yaml
+  - kubelink-usb.io_v1alpha1_usbdevicepolicy.yaml
+  - kubelink-usb.io_v1alpha1_usbconnection.yaml
+  - kubelink-usb.io_v1alpha1_usbdeviceapproval.yaml

@@ -1,0 +1,27 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: usbdeviceapprovals.kubelink-usb.io
+spec:
+  group: kubelink-usb.io
+  names:
+    kind: USBDeviceApproval
+    listKind: USBDeviceApprovalList
+    plural: usbdeviceapprovals
+    singular: usbdeviceapproval
+    shortNames: [usbapproval]
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+            status:
+              type: object
+      subresources:
+        status: {}

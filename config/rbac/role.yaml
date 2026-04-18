@@ -1,0 +1,11 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubelink-usb-controller
+rules:
+  - apiGroups: ["kubelink-usb.io"]
+    resources: ["usbdevices", "usbdevices/status", "usbdeviceapprovals", "usbdeviceapprovals/status", "usbconnections", "usbconnections/status", "usbdevicepolicies", "usbdevicepolicies/status"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]

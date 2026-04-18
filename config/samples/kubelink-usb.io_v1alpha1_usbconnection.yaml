@@ -1,0 +1,13 @@
+apiVersion: kubelink-usb.io/v1alpha1
+kind: USBConnection
+metadata:
+  name: zigbee-to-homeassistant
+  namespace: home-automation
+spec:
+  deviceRef:
+    name: node-a-zigbee-1a86-7523
+    namespace: ""
+  clientNode: node-b
+  podSelector:
+    matchLabels:
+      app: homeassistant

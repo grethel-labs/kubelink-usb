@@ -1,0 +1,5 @@
+resources:
+  - bases/kubelink-usb.io_usbdevices.yaml
+  - bases/kubelink-usb.io_usbdevicepolicies.yaml
+  - bases/kubelink-usb.io_usbconnections.yaml
+  - bases/kubelink-usb.io_usbdeviceapprovals.yaml

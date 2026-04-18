@@ -1,0 +1,24 @@
+apiVersion: kubelink-usb.io/v1alpha1
+kind: USBDevicePolicy
+metadata:
+  name: zigbee-policy
+  namespace: home-automation
+spec:
+  selector:
+    vendorID: "1a86"
+    productID: "7523"
+  approval:
+    mode: "manual"
+    autoApproveKnownDevices: true
+    approvalTimeout: "24h"
+  restrictions:
+    allowedNodes: ["node-b", "node-c"]
+    allowedNamespaces: ["home-automation"]
+    maxConcurrentConnections: 1
+    readonly: false
+    requireEncryption: true
+    networkIsolation: true
+  lifecycle:
+    disconnectTimeout: "30s"
+    reconnectAttempts: 5
+    reconnectBackoff: "10s"
