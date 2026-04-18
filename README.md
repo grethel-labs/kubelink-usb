@@ -41,6 +41,20 @@ This repository contains the initial scaffold for a Kubernetes operator and node
    make docker-build
    ```
 
+## Agent instructions for LLM workflows
+
+- Global agent guidance lives in `.github/copilot-instructions.md`.
+- Folder-specific instructions live in `.github/instructions/*.instructions.md`.
+- Add or adjust these instruction files when introducing new architectural areas.
+
+## CI automation
+
+GitHub Actions workflow `.github/workflows/unit-tests.yml` now validates:
+- unit tests (`make test`)
+- coverage gates (`make coverage-check`)
+- binary builds (`make build`) with uploaded artifacts (`bin/controller`, `bin/agent`)
+- container image builds for controller and agent (`Dockerfile`, `Dockerfile.agent`)
+
 ## Security highlights
 
 - Device approval workflow (`PendingApproval` default phase)
