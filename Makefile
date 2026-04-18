@@ -1,7 +1,7 @@
 IMG_CONTROLLER ?= ghcr.io/grethel-labs/kubelink-usb-controller:latest
 IMG_AGENT ?= ghcr.io/grethel-labs/kubelink-usb-agent:latest
 
-.PHONY: build docker-build install run test test-cover coverage-check fmt lint docs
+.PHONY: build docker-build install run-controller run-agent test test-cover coverage-check fmt lint docs
 
 fmt:
 	go fmt ./...
@@ -16,7 +16,7 @@ lint:
 	go vet ./...
 
 build:
-	go build -o bin/controller ./
+	go build -o bin/controller ./cmd/controller
 	go build -o bin/agent ./cmd/agent
 
 docker-build:
@@ -26,8 +26,11 @@ docker-build:
 install:
 	kubectl apply -f config/crd/bases/
 
-run:
-	go run ./main.go
+run-controller:
+	go run ./cmd/controller
+
+run-agent:
+	go run ./cmd/agent
 
 test:
 	go test ./...
