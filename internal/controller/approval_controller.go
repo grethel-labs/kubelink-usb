@@ -8,19 +8,22 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	usbv1alpha1 "github.com/grethel-labs/kubelink-usb/api/v1alpha1"
+	kmetrics "github.com/grethel-labs/kubelink-usb/internal/metrics"
 	"github.com/grethel-labs/kubelink-usb/internal/security"
 )
 
 // ApprovalReconciler reconciles USBDeviceApproval objects and updates the referenced USBDevice phase.
 type ApprovalReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Policy *security.Engine
+	Scheme   *runtime.Scheme
+	Policy   *security.Engine
+	Recorder record.EventRecorder
 }
 
 // Reconcile handles USBDeviceApproval state transitions.
@@ -83,10 +86,13 @@ func (r *ApprovalReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	if device.Status.Phase != devicePhase {
+		oldPhase := device.Status.Phase
 		device.Status.Phase = devicePhase
 		if err := r.Status().Update(ctx, &device); err != nil {
 			return ctrl.Result{}, err
 		}
+		kmetrics.UpdateDevicePhase(oldPhase, devicePhase)
+		kmetrics.RecordPhaseTransitionEvent(r.Recorder, &device, "device", oldPhase, devicePhase)
 		logger.Info("updated device phase from approval", "device", device.Name, "phase", devicePhase)
 	}
 
@@ -94,6 +100,7 @@ func (r *ApprovalReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 }
 
 func (r *ApprovalReconciler) setApprovalStatus(ctx context.Context, approval *usbv1alpha1.USBDeviceApproval, phase, approvedBy, reason string) (ctrl.Result, error) {
+	oldPhase := approval.Status.Phase
 	now := metav1.Now()
 	approval.Status.Phase = phase
 	approval.Status.ApprovedBy = approvedBy
@@ -102,6 +109,8 @@ func (r *ApprovalReconciler) setApprovalStatus(ctx context.Context, approval *us
 	if err := r.Status().Update(ctx, approval); err != nil {
 		return ctrl.Result{}, err
 	}
+	kmetrics.ObserveApprovalDuration(time.Since(approval.CreationTimestamp.Time))
+	kmetrics.RecordPhaseTransitionEvent(r.Recorder, approval, "approval", oldPhase, phase)
 	return ctrl.Result{}, nil
 }
 

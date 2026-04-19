@@ -405,10 +405,11 @@ func TestDeepCopyNonNilReceiversForAllHelperTypes(t *testing.T) {
 	}
 
 	connStatus := (&USBConnectionStatus{
-		TunnelInfo: &USBConnectionTunnelInfo{ServerHost: "10.0.0.1"},
-		Conditions: []metav1.Condition{{Type: "Ready", Status: metav1.ConditionTrue}},
+		LastRetryTime: &metav1.Time{Time: time.Now()},
+		TunnelInfo:    &USBConnectionTunnelInfo{ServerHost: "10.0.0.1"},
+		Conditions:    []metav1.Condition{{Type: "Ready", Status: metav1.ConditionTrue}},
 	}).DeepCopy()
-	if connStatus == nil || connStatus.TunnelInfo == nil {
+	if connStatus == nil || connStatus.TunnelInfo == nil || connStatus.LastRetryTime == nil {
 		t.Fatal("USBConnectionStatus.DeepCopy() returned unexpected value")
 	}
 

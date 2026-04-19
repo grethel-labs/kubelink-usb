@@ -100,6 +100,9 @@ func (in *USBConnectionSpec) DeepCopy() *USBConnectionSpec {
 
 func (in *USBConnectionStatus) DeepCopyInto(out *USBConnectionStatus) {
 	*out = *in
+	if in.LastRetryTime != nil {
+		out.LastRetryTime = in.LastRetryTime.DeepCopy()
+	}
 	if in.TunnelInfo != nil {
 		out.TunnelInfo = new(USBConnectionTunnelInfo)
 		*out.TunnelInfo = *in.TunnelInfo

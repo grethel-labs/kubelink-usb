@@ -33,6 +33,8 @@ type USBConnectionTunnelInfo struct {
 type USBConnectionStatus struct {
 	Phase            string                   `json:"phase,omitempty"`
 	ClientDevicePath string                   `json:"clientDevicePath,omitempty"`
+	RetryCount       int32                    `json:"retryCount,omitempty"`
+	LastRetryTime    *metav1.Time             `json:"lastRetryTime,omitempty"`
 	TunnelInfo       *USBConnectionTunnelInfo `json:"tunnelInfo,omitempty"`
 	Conditions       []metav1.Condition       `json:"conditions,omitempty"`
 }

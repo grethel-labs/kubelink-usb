@@ -1,0 +1,47 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "kubelink-usb.fullname" . }}-controller
+rules:
+  - apiGroups: ["kubelink-usb.io"]
+    resources:
+      ["usbdevices", "usbdevices/status", "usbdeviceapprovals", "usbdeviceapprovals/status", "usbconnections", "usbconnections/status", "usbdevicepolicies", "usbdevicepolicies/status"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "kubelink-usb.fullname" . }}-controller
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "kubelink-usb.controllerServiceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "kubelink-usb.fullname" . }}-controller
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "kubelink-usb.fullname" . }}-agent
+rules:
+  - apiGroups: ["kubelink-usb.io"]
+    resources: ["usbdevices", "usbdevices/status"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "kubelink-usb.fullname" . }}-agent
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "kubelink-usb.agentServiceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "kubelink-usb.fullname" . }}-agent

@@ -8,8 +8,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/grethel-labs/kubelink-usb/internal/metrics"
 )
 
 // Discovery watches local device paths and emits add/remove/change events.
@@ -17,6 +19,7 @@ type Discovery struct {
 	watcher *fsnotify.Watcher
 	logger  *log.Logger
 	paths   []string
+	sink    DiscoveryEventSink
 }
 
 // DiscoveryEventType is the normalized event category.
@@ -28,8 +31,24 @@ const (
 	DiscoveryEventChange DiscoveryEventType = "change"
 )
 
+// DiscoveryEvent is a normalized watcher event.
+type DiscoveryEvent struct {
+	Type DiscoveryEventType
+	Path string
+}
+
+// DiscoveryEventSink receives normalized discovery events.
+type DiscoveryEventSink interface {
+	OnDiscoveryEvent(context.Context, DiscoveryEvent) error
+}
+
 // NewDiscovery creates a watcher for device paths commonly used for USB serial devices.
 func NewDiscovery(logger *log.Logger) (*Discovery, error) {
+	return NewDiscoveryWithSink(logger, nil)
+}
+
+// NewDiscoveryWithSink creates a watcher with an optional event sink callback.
+func NewDiscoveryWithSink(logger *log.Logger, sink DiscoveryEventSink) (*Discovery, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, fmt.Errorf("create fsnotify watcher: %w", err)
@@ -41,6 +60,7 @@ func NewDiscovery(logger *log.Logger) (*Discovery, error) {
 	d := &Discovery{
 		watcher: watcher,
 		logger:  logger,
+		sink:    sink,
 		paths: []string{
 			"/dev",
 			"/dev/serial",
@@ -103,7 +123,26 @@ func (d *Discovery) Run(ctx context.Context) error {
 			if !looksLikeUSBDevicePath(event.Name) {
 				continue
 			}
-			d.logger.Printf("udev event=%s path=%s raw=%s", eventTypeFromOp(event.Op), event.Name, event.Op.String())
+			discoveryEvent := DiscoveryEvent{
+				Type: eventTypeFromOp(event.Op),
+				Path: event.Name,
+			}
+			metrics.ObserveDiscoveryEvent(string(discoveryEvent.Type))
+			d.logger.Printf("udev event=%s path=%s raw=%s", discoveryEvent.Type, event.Name, event.Op.String())
+			if d.sink != nil {
+				if err := d.sink.OnDiscoveryEvent(ctx, discoveryEvent); err != nil {
+					d.logger.Printf("discovery sink error for path=%s: %v", event.Name, err)
+					timer := time.NewTimer(time.Second)
+					select {
+					case <-ctx.Done():
+						timer.Stop()
+					case <-timer.C:
+						if retryErr := d.sink.OnDiscoveryEvent(ctx, discoveryEvent); retryErr != nil {
+							d.logger.Printf("discovery sink retry failed for path=%s: %v", event.Name, retryErr)
+						}
+					}
+				}
+			}
 		}
 	}
 }

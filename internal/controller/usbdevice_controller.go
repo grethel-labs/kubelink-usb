@@ -6,12 +6,14 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	usbv1alpha1 "github.com/grethel-labs/kubelink-usb/api/v1alpha1"
+	kmetrics "github.com/grethel-labs/kubelink-usb/internal/metrics"
 )
 
 const usbDeviceFinalizer = "kubelink-usb.io/cleanup-export"
@@ -19,7 +21,8 @@ const usbDeviceFinalizer = "kubelink-usb.io/cleanup-export"
 // USBDeviceReconciler reconciles USBDevice objects.
 type USBDeviceReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme   *runtime.Scheme
+	Recorder record.EventRecorder
 }
 
 // Reconcile converges USBDevice state, finalizer lifecycle, and bootstrap status.
@@ -56,6 +59,7 @@ func (r *USBDeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	if device.Status.Phase == "" {
+		oldPhase := device.Status.Phase
 		device.Status.Phase = "PendingApproval"
 		now := metav1.Now()
 		device.Status.LastSeen = &now
@@ -63,6 +67,8 @@ func (r *USBDeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if err := r.Status().Update(ctx, &device); err != nil {
 			return ctrl.Result{}, err
 		}
+		kmetrics.UpdateDevicePhase(oldPhase, device.Status.Phase)
+		kmetrics.RecordPhaseTransitionEvent(r.Recorder, &device, "device", oldPhase, device.Status.Phase)
 	}
 
 	logger.Info("discovered USB device", "device", device.Name, "node", device.Spec.NodeName, "busID", device.Spec.BusID)

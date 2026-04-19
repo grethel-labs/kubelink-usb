@@ -354,6 +354,153 @@ func TestConnectionReconcilerNotFound(t *testing.T) {
 	}
 }
 
+func TestConnectionReconcilerTransitionsConnectedToDisconnected(t *testing.T) {
+	t.Parallel()
+
+	scheme := newTestScheme(t)
+	device := &usbv1alpha1.USBDevice{
+		ObjectMeta: metav1.ObjectMeta{Name: "dev-disconnect"},
+		Spec:       usbv1alpha1.USBDeviceSpec{VendorID: "04b4"},
+		Status:     usbv1alpha1.USBDeviceStatus{Phase: "Disconnected"},
+	}
+	conn := &usbv1alpha1.USBConnection{
+		ObjectMeta: metav1.ObjectMeta{Name: "conn-disconnect", Namespace: "default"},
+		Spec: usbv1alpha1.USBConnectionSpec{
+			DeviceRef:  usbv1alpha1.USBConnectionDeviceRef{Name: "dev-disconnect"},
+			ClientNode: "node-b",
+		},
+		Status: usbv1alpha1.USBConnectionStatus{Phase: "Connected"},
+	}
+
+	client := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&usbv1alpha1.USBConnection{}).
+		WithObjects(device, conn).
+		Build()
+	reconciler := &USBConnectionReconciler{Client: client, Scheme: scheme}
+
+	result, err := reconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{Name: conn.Name, Namespace: conn.Namespace},
+	})
+	if err != nil {
+		t.Fatalf("Reconcile() error = %v", err)
+	}
+	if result.RequeueAfter == 0 {
+		t.Fatal("expected non-zero requeueAfter for disconnected retry")
+	}
+
+	var got usbv1alpha1.USBConnection
+	if err := client.Get(context.Background(), types.NamespacedName{Name: conn.Name, Namespace: conn.Namespace}, &got); err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if got.Status.Phase != "Disconnected" {
+		t.Fatalf("phase = %q, want Disconnected", got.Status.Phase)
+	}
+	if got.Status.RetryCount != 1 {
+		t.Fatalf("retryCount = %d, want 1", got.Status.RetryCount)
+	}
+	if got.Status.LastRetryTime == nil {
+		t.Fatal("lastRetryTime expected to be set")
+	}
+}
+
+func TestConnectionReconcilerFailsWhenRetryBudgetExhausted(t *testing.T) {
+	t.Parallel()
+
+	scheme := newTestScheme(t)
+	device := &usbv1alpha1.USBDevice{
+		ObjectMeta: metav1.ObjectMeta{Name: "dev-fail"},
+		Status:     usbv1alpha1.USBDeviceStatus{Phase: "Disconnected"},
+	}
+	conn := &usbv1alpha1.USBConnection{
+		ObjectMeta: metav1.ObjectMeta{Name: "conn-fail", Namespace: "default"},
+		Spec: usbv1alpha1.USBConnectionSpec{
+			DeviceRef:  usbv1alpha1.USBConnectionDeviceRef{Name: "dev-fail"},
+			ClientNode: "node-b",
+		},
+		Status: usbv1alpha1.USBConnectionStatus{Phase: "Disconnected", RetryCount: 3},
+	}
+
+	client := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&usbv1alpha1.USBConnection{}).
+		WithObjects(device, conn).
+		Build()
+	reconciler := &USBConnectionReconciler{Client: client, Scheme: scheme}
+
+	_, err := reconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{Name: conn.Name, Namespace: conn.Namespace},
+	})
+	if err != nil {
+		t.Fatalf("Reconcile() error = %v", err)
+	}
+
+	var got usbv1alpha1.USBConnection
+	if err := client.Get(context.Background(), types.NamespacedName{Name: conn.Name, Namespace: conn.Namespace}, &got); err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if got.Status.Phase != "Failed" {
+		t.Fatalf("phase = %q, want Failed", got.Status.Phase)
+	}
+}
+
+func TestConnectionReconcilerUsesPolicyRetrySettings(t *testing.T) {
+	t.Parallel()
+
+	scheme := newTestScheme(t)
+	device := &usbv1alpha1.USBDevice{
+		ObjectMeta: metav1.ObjectMeta{Name: "dev-policy"},
+		Spec:       usbv1alpha1.USBDeviceSpec{VendorID: "04b4"},
+		Status:     usbv1alpha1.USBDeviceStatus{Phase: "Disconnected"},
+	}
+	policy := &usbv1alpha1.USBDevicePolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "policy-retry", Namespace: "default"},
+		Spec: usbv1alpha1.USBDevicePolicySpec{
+			Selector: usbv1alpha1.USBDevicePolicySelector{VendorID: "04b4"},
+			Lifecycle: usbv1alpha1.USBDeviceLifecycle{
+				ReconnectAttempts: 5,
+				ReconnectBackoff:  metav1.Duration{Duration: time.Second},
+			},
+		},
+	}
+	conn := &usbv1alpha1.USBConnection{
+		ObjectMeta: metav1.ObjectMeta{Name: "conn-policy", Namespace: "default"},
+		Spec: usbv1alpha1.USBConnectionSpec{
+			DeviceRef:  usbv1alpha1.USBConnectionDeviceRef{Name: "dev-policy"},
+			ClientNode: "node-b",
+		},
+		Status: usbv1alpha1.USBConnectionStatus{Phase: "Disconnected", RetryCount: 3},
+	}
+
+	client := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&usbv1alpha1.USBConnection{}).
+		WithObjects(device, conn, policy).
+		Build()
+	reconciler := &USBConnectionReconciler{Client: client, Scheme: scheme}
+
+	result, err := reconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{Name: conn.Name, Namespace: conn.Namespace},
+	})
+	if err != nil {
+		t.Fatalf("Reconcile() error = %v", err)
+	}
+	if result.RequeueAfter != time.Second {
+		t.Fatalf("RequeueAfter = %s, want %s", result.RequeueAfter, time.Second)
+	}
+
+	var got usbv1alpha1.USBConnection
+	if err := client.Get(context.Background(), types.NamespacedName{Name: conn.Name, Namespace: conn.Namespace}, &got); err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if got.Status.Phase != "Disconnected" {
+		t.Fatalf("phase = %q, want Disconnected", got.Status.Phase)
+	}
+	if got.Status.RetryCount != 4 {
+		t.Fatalf("retryCount = %d, want 4", got.Status.RetryCount)
+	}
+}
+
 func TestConnectionReconcilerDeletion(t *testing.T) {
 	t.Parallel()
 

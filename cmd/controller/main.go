@@ -15,6 +15,8 @@ import (
 	usbv1alpha1 "github.com/grethel-labs/kubelink-usb/api/v1alpha1"
 	"github.com/grethel-labs/kubelink-usb/internal/backup"
 	"github.com/grethel-labs/kubelink-usb/internal/controller"
+	kmetrics "github.com/grethel-labs/kubelink-usb/internal/metrics"
+	usbwebhook "github.com/grethel-labs/kubelink-usb/internal/webhook"
 )
 
 var (
@@ -39,6 +41,7 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 	setupLog := ctrl.Log.WithName("setup")
+	kmetrics.Register()
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
@@ -54,18 +57,45 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&controller.USBDeviceReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme()}).SetupWithManager(mgr); err != nil {
+	if err := (&controller.USBDeviceReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("usbdevice-controller"),
+	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "failed to create USBDevice controller")
 		os.Exit(1)
 	}
 
-	if err := (&controller.ApprovalReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme()}).SetupWithManager(mgr); err != nil {
+	if err := (&controller.ApprovalReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("approval-controller"),
+	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "failed to create Approval controller")
 		os.Exit(1)
 	}
 
-	if err := (&controller.USBConnectionReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme()}).SetupWithManager(mgr); err != nil {
+	if err := (&controller.USBConnectionReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("usbconnection-controller"),
+	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "failed to create USBConnection controller")
+		os.Exit(1)
+	}
+
+	if err := ctrl.NewWebhookManagedBy(mgr).
+		For(&usbv1alpha1.USBDevicePolicy{}).
+		WithValidator(usbwebhook.NewPolicyValidator()).
+		Complete(); err != nil {
+		setupLog.Error(err, "failed to register USBDevicePolicy webhook")
+		os.Exit(1)
+	}
+	if err := ctrl.NewWebhookManagedBy(mgr).
+		For(&usbv1alpha1.USBDevice{}).
+		WithDefaulter(usbwebhook.NewDeviceDefaulter()).
+		Complete(); err != nil {
+		setupLog.Error(err, "failed to register USBDevice webhook")
 		os.Exit(1)
 	}
 

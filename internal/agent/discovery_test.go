@@ -13,6 +13,15 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+type recordingSink struct {
+	events chan DiscoveryEvent
+}
+
+func (r *recordingSink) OnDiscoveryEvent(_ context.Context, event DiscoveryEvent) error {
+	r.events <- event
+	return nil
+}
+
 func TestEventTypeFromOp(t *testing.T) {
 	t.Parallel()
 
@@ -146,5 +155,50 @@ func TestAddPathsHandlesMissingAndInvalidPaths(t *testing.T) {
 	if !errors.Is(err, os.ErrInvalid) && !errors.Is(err, os.ErrNotExist) {
 		// platform-specific error details vary; keep branch assertion explicit.
 		t.Logf("addPaths() returned expected failure: %v", err)
+	}
+}
+
+func TestDiscoveryRunInvokesSinkCallback(t *testing.T) {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		t.Fatalf("NewWatcher() error = %v", err)
+	}
+
+	sink := &recordingSink{events: make(chan DiscoveryEvent, 1)}
+	d := &Discovery{
+		watcher: watcher,
+		logger:  log.New(io.Discard, "", 0),
+		paths:   []string{"/dev"},
+		sink:    sink,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		done <- d.Run(ctx)
+	}()
+
+	watcher.Events <- fsnotify.Event{Name: "/dev/ttyUSB7", Op: fsnotify.Create}
+
+	select {
+	case got := <-sink.events:
+		if got.Type != DiscoveryEventAdd {
+			t.Fatalf("event type = %s, want %s", got.Type, DiscoveryEventAdd)
+		}
+		if got.Path != "/dev/ttyUSB7" {
+			t.Fatalf("event path = %q, want /dev/ttyUSB7", got.Path)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected sink callback event")
+	}
+
+	cancel()
+	select {
+	case runErr := <-done:
+		if runErr != nil {
+			t.Fatalf("Run() error = %v", runErr)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Run() did not stop")
 	}
 }

@@ -1,8 +1,15 @@
 package security
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"math/big"
 	"testing"
+	"time"
 
 	usbv1alpha1 "github.com/grethel-labs/kubelink-usb/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -237,4 +244,120 @@ func TestEngineMatchesSelector(t *testing.T) {
 	if engine.MatchesSelector(device, nonMatchingPolicy) {
 		t.Error("expected policy NOT to match device")
 	}
+}
+
+func TestTLSHelpers(t *testing.T) {
+	t.Parallel()
+
+	cert, caPEM := generateTestCertAndCA(t)
+
+	tests := []struct {
+		name    string
+		build   func() (*tls.Config, error)
+		wantErr bool
+	}{
+		{
+			name: "mutual tls config",
+			build: func() (*tls.Config, error) {
+				return MutualTLSConfig(cert, caPEM)
+			},
+		},
+		{
+			name: "client tls config",
+			build: func() (*tls.Config, error) {
+				return ClientTLSConfig(cert, caPEM, "kubelink-usb.local")
+			},
+		},
+		{
+			name: "invalid ca",
+			build: func() (*tls.Config, error) {
+				return MutualTLSConfig(cert, []byte("invalid"))
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			cfg, err := tt.build()
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if cfg.MinVersion != tls.VersionTLS13 {
+				t.Fatalf("MinVersion=%d want=%d", cfg.MinVersion, tls.VersionTLS13)
+			}
+		})
+	}
+}
+
+func TestBuildIsolationNetworkPolicy(t *testing.T) {
+	t.Parallel()
+
+	pol := BuildIsolationNetworkPolicy("default", "np-usb", map[string]string{"app": "kubelink-usb-agent"})
+	if pol.Namespace != "default" || pol.Name != "np-usb" {
+		t.Fatalf("unexpected metadata: %s/%s", pol.Namespace, pol.Name)
+	}
+	if len(pol.Spec.PolicyTypes) != 2 {
+		t.Fatalf("policy types len=%d want=2", len(pol.Spec.PolicyTypes))
+	}
+	if got := pol.Spec.PodSelector.MatchLabels["app"]; got != "kubelink-usb-agent" {
+		t.Fatalf("pod selector app=%q want kubelink-usb-agent", got)
+	}
+}
+
+func generateTestCertAndCA(t *testing.T) (tls.Certificate, []byte) {
+	t.Helper()
+
+	caKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("GenerateKey(ca) error = %v", err)
+	}
+	caTemplate := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "kubelink-ca"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(24 * time.Hour),
+		IsCA:                  true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+		BasicConstraintsValid: true,
+	}
+	caDER, err := x509.CreateCertificate(rand.Reader, caTemplate, caTemplate, &caKey.PublicKey, caKey)
+	if err != nil {
+		t.Fatalf("CreateCertificate(ca) error = %v", err)
+	}
+
+	certKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("GenerateKey(cert) error = %v", err)
+	}
+	certTemplate := &x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		Subject:      pkix.Name{CommonName: "kubelink-client"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(24 * time.Hour),
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+	}
+	certDER, err := x509.CreateCertificate(rand.Reader, certTemplate, caTemplate, &certKey.PublicKey, caKey)
+	if err != nil {
+		t.Fatalf("CreateCertificate(cert) error = %v", err)
+	}
+
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(certKey)})
+	caPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caDER})
+
+	cert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		t.Fatalf("X509KeyPair() error = %v", err)
+	}
+	return cert, caPEM
 }
