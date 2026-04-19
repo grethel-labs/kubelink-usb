@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -59,6 +60,28 @@ func TestServerUnexportEmptyBusID(t *testing.T) {
 	s := &Server{Runner: &mockRunner{}}
 	if err := s.Unexport(context.Background(), ""); err == nil {
 		t.Fatal("Unexport() expected error for empty busID")
+	}
+}
+
+func TestServerRunnerDefault(t *testing.T) {
+	t.Parallel()
+
+	s := &Server{}
+	if _, ok := s.runner().(*ExecRunner); !ok {
+		t.Fatal("expected default runner to be ExecRunner")
+	}
+}
+
+func TestExecRunnerRunSuccess(t *testing.T) {
+	t.Parallel()
+
+	r := &ExecRunner{}
+	out, err := r.Run(context.Background(), "sh", "-c", "printf test-output")
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if strings.TrimSpace(string(out)) != "test-output" {
+		t.Fatalf("Run() output = %q", string(out))
 	}
 }
 

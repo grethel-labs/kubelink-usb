@@ -39,6 +39,23 @@ func TestPolicyValidator(t *testing.T) {
 	}
 }
 
+func TestPolicyValidatorConstructorsAndNoopMethods(t *testing.T) {
+	t.Parallel()
+
+	validator := NewPolicyValidator()
+	if validator == nil {
+		t.Fatal("expected validator")
+	}
+
+	obj := &usbv1alpha1.USBDevicePolicy{}
+	if _, err := validator.ValidateUpdate(context.Background(), obj, obj); err != nil {
+		t.Fatalf("ValidateUpdate() unexpected error: %v", err)
+	}
+	if _, err := validator.ValidateDelete(context.Background(), obj); err != nil {
+		t.Fatalf("ValidateDelete() unexpected error: %v", err)
+	}
+}
+
 func TestDeviceDefaulter(t *testing.T) {
 	t.Parallel()
 
@@ -87,5 +104,14 @@ func TestDeviceDefaulter(t *testing.T) {
 				t.Fatalf("NodeName=%q want %q", tt.device.Spec.NodeName, tt.wantNode)
 			}
 		})
+	}
+}
+
+func TestDeviceDefaulterConstructor(t *testing.T) {
+	t.Parallel()
+
+	defaulter := NewDeviceDefaulter()
+	if defaulter == nil {
+		t.Fatal("expected defaulter")
 	}
 }

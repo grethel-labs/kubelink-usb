@@ -132,3 +132,77 @@ func TestBridgeAddAndRemove(t *testing.T) {
 		t.Fatal("expected LastSeen to be set on remove")
 	}
 }
+
+func TestBridgeReAddDisconnectedDeviceResetsStatus(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := usbv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme() error = %v", err)
+	}
+
+	path := "/dev/serial/by-id/usb-ReAdd_Device_002"
+	serial := "usb-ReAdd_Device_002"
+	name := utils.DeviceFingerprint("node-a", "0000", "0000", serial, serial)
+
+	existing := &usbv1alpha1.USBDevice{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec: usbv1alpha1.USBDeviceSpec{
+			BusID:        serial,
+			DevicePath:   "/dev/ttyUSB9",
+			NodeName:     "node-a",
+			VendorID:     "0000",
+			ProductID:    "0000",
+			SerialNumber: serial,
+		},
+		Status: usbv1alpha1.USBDeviceStatus{
+			Phase: "Disconnected",
+		},
+	}
+
+	client := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&usbv1alpha1.USBDevice{}).
+		WithObjects(existing).
+		Build()
+
+	bridge := NewUSBDeviceBridge(client, "node-a", log.New(io.Discard, "", 0))
+	if err := bridge.OnDiscoveryEvent(context.Background(), DiscoveryEvent{Type: DiscoveryEventAdd, Path: path}); err != nil {
+		t.Fatalf("OnDiscoveryEvent(add) error = %v", err)
+	}
+
+	var got usbv1alpha1.USBDevice
+	if err := client.Get(context.Background(), types.NamespacedName{Name: name}, &got); err != nil {
+		t.Fatalf("Get(updated device) error = %v", err)
+	}
+	if got.Spec.DevicePath != path {
+		t.Fatalf("device path=%q want %q", got.Spec.DevicePath, path)
+	}
+	if got.Status.Phase != "PendingApproval" {
+		t.Fatalf("phase=%q want PendingApproval", got.Status.Phase)
+	}
+	if got.Status.LastSeen == nil || got.Status.LastSeen.Equal(&metav1.Time{}) {
+		t.Fatal("expected LastSeen to be set on re-add")
+	}
+}
+
+func TestBridgeOnDiscoveryEventNoClient(t *testing.T) {
+	bridge := &USBDeviceBridge{client: nil, nodeName: "node-a", logger: log.New(io.Discard, "", 0)}
+	if err := bridge.OnDiscoveryEvent(context.Background(), DiscoveryEvent{Type: DiscoveryEventAdd, Path: "/dev/ttyUSB0"}); err == nil {
+		t.Fatal("expected error when kubernetes client is not configured")
+	}
+}
+
+func TestBridgeOnDiscoveryEventUnknownTypeNoop(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := usbv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme() error = %v", err)
+	}
+
+	client := fake.NewClientBuilder().WithScheme(scheme).Build()
+	bridge := NewUSBDeviceBridge(client, "node-a", nil)
+	if bridge.logger == nil {
+		t.Fatal("expected default logger to be set")
+	}
+	if err := bridge.OnDiscoveryEvent(context.Background(), DiscoveryEvent{Type: "unknown", Path: "/dev/ttyUSB0"}); err != nil {
+		t.Fatalf("unexpected error for unknown event type: %v", err)
+	}
+}

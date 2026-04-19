@@ -22,6 +22,20 @@ func (r *recordingSink) OnDiscoveryEvent(_ context.Context, event DiscoveryEvent
 	return nil
 }
 
+type flakySink struct {
+	calls chan DiscoveryEvent
+	fail  bool
+}
+
+func (f *flakySink) OnDiscoveryEvent(_ context.Context, event DiscoveryEvent) error {
+	f.calls <- event
+	if f.fail {
+		f.fail = false
+		return errors.New("temporary sink failure")
+	}
+	return nil
+}
+
 func TestEventTypeFromOp(t *testing.T) {
 	t.Parallel()
 
@@ -190,6 +204,53 @@ func TestDiscoveryRunInvokesSinkCallback(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("expected sink callback event")
+	}
+
+	cancel()
+	select {
+	case runErr := <-done:
+		if runErr != nil {
+			t.Fatalf("Run() error = %v", runErr)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Run() did not stop")
+	}
+}
+
+func TestDiscoveryRunRetriesSinkAfterError(t *testing.T) {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		t.Fatalf("NewWatcher() error = %v", err)
+	}
+
+	sink := &flakySink{
+		calls: make(chan DiscoveryEvent, 2),
+		fail:  true,
+	}
+	d := &Discovery{
+		watcher: watcher,
+		logger:  log.New(io.Discard, "", 0),
+		paths:   []string{"/dev"},
+		sink:    sink,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		done <- d.Run(ctx)
+	}()
+
+	watcher.Events <- fsnotify.Event{Name: "/dev/ttyUSB8", Op: fsnotify.Create}
+
+	for i := 0; i < 2; i++ {
+		select {
+		case got := <-sink.calls:
+			if got.Type != DiscoveryEventAdd {
+				t.Fatalf("event type = %s, want %s", got.Type, DiscoveryEventAdd)
+			}
+		case <-time.After(3 * time.Second):
+			t.Fatalf("expected sink callback #%d", i+1)
+		}
 	}
 
 	cancel()
