@@ -40,6 +40,7 @@ flowchart LR
     github_com_grethel_labs_kubelink_usb_internal_backup["github.com/grethel-labs/kubelink-usb/internal/backup"] --> github_com_grethel_labs_kubelink_usb_api_v1alpha1["github.com/grethel-labs/kubelink-usb/api/v1alpha1"]
     github_com_grethel_labs_kubelink_usb_internal_controller["github.com/grethel-labs/kubelink-usb/internal/controller"] --> github_com_grethel_labs_kubelink_usb_api_v1alpha1["github.com/grethel-labs/kubelink-usb/api/v1alpha1"]
     github_com_grethel_labs_kubelink_usb_internal_controller["github.com/grethel-labs/kubelink-usb/internal/controller"] --> github_com_grethel_labs_kubelink_usb_internal_backup["github.com/grethel-labs/kubelink-usb/internal/backup"]
+    github_com_grethel_labs_kubelink_usb_internal_controller["github.com/grethel-labs/kubelink-usb/internal/controller"] --> github_com_grethel_labs_kubelink_usb_internal_security["github.com/grethel-labs/kubelink-usb/internal/security"]
     github_com_grethel_labs_kubelink_usb_internal_security["github.com/grethel-labs/kubelink-usb/internal/security"] --> github_com_grethel_labs_kubelink_usb_api_v1alpha1["github.com/grethel-labs/kubelink-usb/api/v1alpha1"]
 ```
 

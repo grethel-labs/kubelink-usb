@@ -59,6 +59,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := (&controller.ApprovalReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme()}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "failed to create Approval controller")
+		os.Exit(1)
+	}
+
+	if err := (&controller.USBConnectionReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme()}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "failed to create USBConnection controller")
+		os.Exit(1)
+	}
+
 	// Initialize backup storage from default configmap-based destination.
 	// In production, this would be loaded from a USBBackupConfig CR.
 	backupStorage := backup.NewConfigMapStorage("kubelink-backup-store")
