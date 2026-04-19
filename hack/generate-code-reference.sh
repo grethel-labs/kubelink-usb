@@ -43,6 +43,7 @@ trap 'rm -f "${tmp_file}"' EXIT
 			"${module}/internal/agent") role="node-local discovery and attach/export stubs" ;;
 			"${module}/internal/security") role="policy and TLS defaults" ;;
 			"${module}/internal/usbip") role="USB/IP protocol/data-plane stubs" ;;
+			"${module}/internal/backup") role="backup/restore storage and snapshot logic" ;;
 			"${module}/internal/utils") role="pure helper functions" ;;
 			"${module}/pkg/api") role="API package marker docs" ;;
 		esac

@@ -23,7 +23,7 @@ Use this structure for exported types and functions:
 | `github.com/grethel-labs/kubelink-usb/cmd/agent` | node agent entrypoint |
 | `github.com/grethel-labs/kubelink-usb/cmd/controller` | controller placeholder entrypoint |
 | `github.com/grethel-labs/kubelink-usb/internal/agent` | node-local discovery and attach/export stubs |
-| `github.com/grethel-labs/kubelink-usb/internal/backup` | application code |
+| `github.com/grethel-labs/kubelink-usb/internal/backup` | backup/restore storage and snapshot logic |
 | `github.com/grethel-labs/kubelink-usb/internal/controller` | reconcile loop and object lifecycle |
 | `github.com/grethel-labs/kubelink-usb/internal/security` | policy and TLS defaults |
 | `github.com/grethel-labs/kubelink-usb/internal/usbip` | USB/IP protocol/data-plane stubs |
