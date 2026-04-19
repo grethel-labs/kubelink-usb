@@ -1,98 +1,135 @@
 # kubelink-usb (K8s-USBIP)
 
-This repository contains the initial scaffold for a Kubernetes operator and node agent that expose USB devices across nodes via USB/IP with a security-first approval flow.
+A Kubernetes operator and node agent for sharing USB devices across cluster nodes via USB/IP with a security-first approval flow, backup/restore capabilities, and automated health monitoring.
+
+## Project Status
+
+| Area | Status | Coverage |
+|------|--------|----------|
+| **CRD API Types** (8 resources) | ✅ Complete | 98.9% |
+| **USBDevice Reconciler** (finalizer + status) | ✅ Complete | 84.0% |
+| **Backup/Restore System** (snapshot, storage, controllers) | ✅ Complete | 91.2% |
+| **Health Monitor** (consistency checks, auto-restore) | ✅ Complete | — |
+| **Discovery Watcher** (fsnotify, event normalization) | ✅ Complete | 69.0% |
+| **TLS Baseline** + Whitelist | ✅ Complete | 100.0% |
+| **USB/IP Protocol** (BasicHeader only) | 🔶 Partial | 100.0% |
+| **Policy Engine** (always returns true) | ⚠️ Stub | 100.0% |
+| **Approval Controller** | ⚠️ Stub | — |
+| **Connection Controller** | ⚠️ Stub | — |
+| **Agent Client/Server** (Attach/Export) | ⚠️ Stub | — |
+| **Overall** | ~45% of v1.0 | **85.3%** |
 
 ## Architecture
 
 ```text
-+----------------------+       +-------------------------+
-| Node A               |       | Kubernetes Controller   |
-| USB Device + Agent   +------>+ USBDevice Reconciler    |
-| (Discovery/export)   |       | + Approval integration  |
-+----------+-----------+       +------------+------------+
-           |                                 |
-           | USB/IP tunnel                   | CRDs
-           v                                 v
-+----------+-----------+       +-------------------------+
-| Node B               |       | API Resources           |
-| Agent (attach) + Pod |<------+ USBDevice              |
-| /dev/ttyUSB*         |       | USBConnection          |
-+----------------------+       | USBDevicePolicy        |
-                               | USBDeviceApproval      |
-                               +-------------------------+
+┌─────────────────────────────────────────────────────────────────────┐
+│ CONTROLLER (cmd/controller)                                         │
+├─────────────────────────────────────────────────────────────────────┤
+│ ✅ USBDeviceReconciler — watches USBDevice, initializes status      │
+│ ⚠️  ApprovalReconciler — placeholder (Phase 2)                      │
+│ ⚠️  USBConnectionReconciler — placeholder (Phase 3)                 │
+│ ✅ BackupReconciler — collects + snapshots config to storage        │
+│ ✅ RestoreReconciler — validates + applies + revalidates            │
+│ ✅ HealthMonitor — checks consistency, triggers auto-restore        │
+└─────────────────────────────────────────────────────────────────────┘
+                                 ↓ kubectl apply
+                        ┌────────────────────────┐
+                        │ Kubernetes API Server  │
+                        │                        │
+                        │ CRDs:                  │
+                        │  USBDevice             │
+                        │  USBDeviceApproval     │
+                        │  USBDevicePolicy       │
+                        │  USBConnection         │
+                        │  USBDeviceWhitelist    │
+                        │  USBBackupConfig       │
+                        │  USBBackup             │
+                        │  USBRestore            │
+                        └────────────────────────┘
+                                 ↓ watches
+┌─────────────────────────────────────────────────────────────────────┐
+│ AGENT (cmd/agent)                                                   │
+├─────────────────────────────────────────────────────────────────────┤
+│ ✅ Discovery — fsnotify on /dev, logs normalized events             │
+│ ⚠️  Server.Export() — placeholder (should call usbipd bind)         │
+│ ⚠️  Client.Attach() — placeholder (should call usbip attach)        │
+│ ⚠️  USB/IP protocol — BasicHeader only, import/export stubs         │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-## Quick start
+## Quick Start
 
 1. Build binaries:
    ```bash
-   make build
+   make build          # outputs bin/controller + bin/agent
    ```
 2. Install CRDs:
    ```bash
-   make install
+   make install        # kubectl apply -f config/crd/bases/
    ```
 3. Run controller locally (needs kubeconfig):
    ```bash
-   make run
+   make run-controller
    ```
-4. Build container images:
+4. Run agent locally:
    ```bash
-   make docker-build
+   make run-agent
+   ```
+5. Build container images:
+   ```bash
+   make docker-build   # builds both controller + agent images
    ```
 
-## Agent instructions for LLM workflows
+## CRD Resources (8 types)
 
-- Global agent guidance lives in `.github/copilot-instructions.md`.
-- Folder-specific instructions live in `.github/instructions/*.instructions.md`.
-- Add or adjust these instruction files when introducing new architectural areas.
+| Resource | Scope | Short | Purpose |
+|----------|-------|-------|---------|
+| `USBDevice` | Cluster | `usbdev` | Discovered device representation |
+| `USBDeviceApproval` | Cluster | `usbappr` | Manual/auto approval requests |
+| `USBDevicePolicy` | Cluster | `usbpol` | Security rules (selectors, restrictions) |
+| `USBConnection` | Namespaced | `usbconn` | Tunnel lifecycle (export↔attach) |
+| `USBDeviceWhitelist` | Cluster | `usbwl` | Known-safe device registry |
+| `USBBackupConfig` | Cluster | `usbbc` | Backup storage destination (PVC/ConfigMap/S3) |
+| `USBBackup` | Cluster | `usbbk` | Backup request + result + checksum |
+| `USBRestore` | Cluster | `usbrs` | Restore request with dry-run + health validation |
 
-## CI automation
+## CI Automation
 
-GitHub Actions workflow `.github/workflows/unit-tests.yml` now validates:
-- strict linting on every commit (`gofmt` check + `go vet`)
-- unit tests (`make test`)
-- coverage gates (`make coverage-check`, overall minimum 80%)
-- binary builds (`make build`) with uploaded artifacts (`bin/controller`, `bin/agent`)
-- container image builds for controller and agent (`Dockerfile`, `Dockerfile.agent`)
+GitHub Actions workflow `.github/workflows/unit-tests.yml` validates:
+- strict linting (`gofmt` check + `go vet`)
+- unit tests (`make test`) — 53 test functions across 15 files
+- coverage gates (`make coverage-check`, overall minimum 80%, currently **85.3%**)
+- binary builds (`make build`) with uploaded artifacts
+- container image builds for controller and agent
 - generated documentation consistency (`make docs` + committed output)
-- automatic image publishing to GHCR on `push` to `main` (`latest` + commit SHA tags)
+- automatic image publishing to GHCR on `push` to `main`
 
-## Branch protection and approval policy
+## Branch Protection
 
-To enforce "no direct push to `main` except approved flow", configure repository **Branch protection / Rulesets** in GitHub settings:
+Configure repository **Branch protection / Rulesets** in GitHub settings:
 - require pull requests before merging
 - require at least one approval
 - require status checks to pass (at minimum the `CI / lint` check)
-- optionally restrict who can push directly to `main`
 
-Without these repository settings, workflows can fail a commit but cannot block a direct push by themselves.
-
-## License and legal notes for publishing artifacts
+## License
 
 Repository license: **Apache-2.0** (`LICENSE`).
 
-Before publishing artifacts, verify:
-- dependency licenses are compatible with your intended distribution model
-- required notices/attribution files are included for redistributed components
-- no proprietary material, secrets, or personal data is packaged
-- trademark and export-control obligations are assessed for your target regions
+## Code Documentation
 
-This is engineering guidance and not legal advice.
-
-## Code documentation system
-
-- Unified commenting structure is defined in `docs/CODE_REFERENCE.md`.
-- Architecture/reference markdown is generated from code with:
+- Unified commenting structure defined in `docs/CODE_REFERENCE.md`
+- Detailed architecture and workflow diagrams in `docs/architecture.md`
+- Implementation roadmap with progress tracking in `docs/TODO.md`
+- Auto-generated reference:
   ```bash
   make docs
   ```
-- Generated output (including Mermaid diagrams) is committed in:
-  - `docs/CODE_REFERENCE.md`
 
-## Security highlights
+## Security Highlights
 
 - Device approval workflow (`PendingApproval` default phase)
 - Policy-driven restrictions (namespaces/nodes/concurrency)
-- Optional encryption requirement in policy model
+- Optional encryption requirement in policy model (TLS 1.3 baseline)
 - Finalizer hook for export cleanup
+- Backup integrity validation (SHA-256 checksums)
+- Auto-restore with health monitoring (10min cooldown, 3 max retries)
