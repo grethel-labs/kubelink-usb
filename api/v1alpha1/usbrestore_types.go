@@ -18,10 +18,10 @@ type PreRestoreHealthCheck struct {
 
 // ConnectionRevalidation captures results of post-restore connection validation.
 type ConnectionRevalidation struct {
-	Total                  int32    `json:"total,omitempty"`
-	Valid                  int32    `json:"valid,omitempty"`
-	Terminated             int32    `json:"terminated,omitempty"`
-	TerminatedConnections  []string `json:"terminatedConnections,omitempty"`
+	Total                 int32    `json:"total,omitempty"`
+	Valid                 int32    `json:"valid,omitempty"`
+	Terminated            int32    `json:"terminated,omitempty"`
+	TerminatedConnections []string `json:"terminatedConnections,omitempty"`
 }
 
 // RestoreItemCounts tracks the number of items restored.
@@ -41,11 +41,11 @@ type USBRestoreSpec struct {
 
 // USBRestoreStatus defines the observed state of USBRestore.
 type USBRestoreStatus struct {
-	Phase                 string                  `json:"phase,omitempty"`
-	PreRestoreHealthCheck *PreRestoreHealthCheck  `json:"preRestoreHealthCheck,omitempty"`
-	RestoredItems         *RestoreItemCounts      `json:"restoredItems,omitempty"`
+	Phase                  string                  `json:"phase,omitempty"`
+	PreRestoreHealthCheck  *PreRestoreHealthCheck  `json:"preRestoreHealthCheck,omitempty"`
+	RestoredItems          *RestoreItemCounts      `json:"restoredItems,omitempty"`
 	ConnectionRevalidation *ConnectionRevalidation `json:"connectionRevalidation,omitempty"`
-	CompletedAt           *metav1.Time            `json:"completedAt,omitempty"`
+	CompletedAt            *metav1.Time            `json:"completedAt,omitempty"`
 }
 
 // +kubebuilder:object:root=true

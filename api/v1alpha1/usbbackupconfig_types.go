@@ -12,10 +12,10 @@ type BackupDestinationPVC struct {
 
 // BackupDestinationS3 configures S3-compatible backup storage.
 type BackupDestinationS3 struct {
-	Bucket    string                    `json:"bucket"`
-	Endpoint  string                    `json:"endpoint,omitempty"`
-	Region    string                    `json:"region,omitempty"`
-	SecretRef *BackupDestinationSecret  `json:"secretRef,omitempty"`
+	Bucket    string                   `json:"bucket"`
+	Endpoint  string                   `json:"endpoint,omitempty"`
+	Region    string                   `json:"region,omitempty"`
+	SecretRef *BackupDestinationSecret `json:"secretRef,omitempty"`
 }
 
 // BackupDestinationSecret references a Kubernetes secret for credentials.

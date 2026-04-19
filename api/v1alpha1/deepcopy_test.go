@@ -136,6 +136,36 @@ func TestDeepCopyNilReceivers(t *testing.T) {
 		connectionPodSelector *USBConnectionPodSelector
 		connectionDeviceRef   *USBConnectionDeviceRef
 		connectionTunnelInfo  *USBConnectionTunnelInfo
+
+		// New backup/restore/whitelist types
+		whitelist          *USBDeviceWhitelist
+		whitelistList      *USBDeviceWhitelistList
+		whitelistSpec      *USBDeviceWhitelistSpec
+		whitelistStatus    *USBDeviceWhitelistStatus
+		whitelistEntry     *WhitelistEntry
+		backupConfig       *USBBackupConfig
+		backupConfigList   *USBBackupConfigList
+		backupConfigSpec   *USBBackupConfigSpec
+		backupConfigStatus *USBBackupConfigStatus
+		backupDest         *BackupDestination
+		backupDestPVC      *BackupDestinationPVC
+		backupDestS3       *BackupDestinationS3
+		backupDestSecret   *BackupDestinationSecret
+		backupDestCM       *BackupDestinationConfigMap
+		autoRestore        *AutoRestoreConfig
+		usbBackup          *USBBackup
+		backupList         *USBBackupList
+		backupSpec         *USBBackupSpec
+		backupStatus       *USBBackupStatus
+		backupItemCounts   *BackupItemCounts
+		restore            *USBRestore
+		restoreList        *USBRestoreList
+		restoreSpec        *USBRestoreSpec
+		restoreStatus      *USBRestoreStatus
+		restoreBackupRef   *RestoreBackupRef
+		preRestoreHealth   *PreRestoreHealthCheck
+		connRevalidation   *ConnectionRevalidation
+		restoreItemCounts  *RestoreItemCounts
 	)
 
 	if connection.DeepCopy() != nil ||
@@ -163,7 +193,35 @@ func TestDeepCopyNilReceivers(t *testing.T) {
 		deviceConnectionInfo.DeepCopy() != nil ||
 		connectionPodSelector.DeepCopy() != nil ||
 		connectionDeviceRef.DeepCopy() != nil ||
-		connectionTunnelInfo.DeepCopy() != nil {
+		connectionTunnelInfo.DeepCopy() != nil ||
+		whitelist.DeepCopy() != nil ||
+		whitelistList.DeepCopy() != nil ||
+		whitelistSpec.DeepCopy() != nil ||
+		whitelistStatus.DeepCopy() != nil ||
+		whitelistEntry.DeepCopy() != nil ||
+		backupConfig.DeepCopy() != nil ||
+		backupConfigList.DeepCopy() != nil ||
+		backupConfigSpec.DeepCopy() != nil ||
+		backupConfigStatus.DeepCopy() != nil ||
+		backupDest.DeepCopy() != nil ||
+		backupDestPVC.DeepCopy() != nil ||
+		backupDestS3.DeepCopy() != nil ||
+		backupDestSecret.DeepCopy() != nil ||
+		backupDestCM.DeepCopy() != nil ||
+		autoRestore.DeepCopy() != nil ||
+		usbBackup.DeepCopy() != nil ||
+		backupList.DeepCopy() != nil ||
+		backupSpec.DeepCopy() != nil ||
+		backupStatus.DeepCopy() != nil ||
+		backupItemCounts.DeepCopy() != nil ||
+		restore.DeepCopy() != nil ||
+		restoreList.DeepCopy() != nil ||
+		restoreSpec.DeepCopy() != nil ||
+		restoreStatus.DeepCopy() != nil ||
+		restoreBackupRef.DeepCopy() != nil ||
+		preRestoreHealth.DeepCopy() != nil ||
+		connRevalidation.DeepCopy() != nil ||
+		restoreItemCounts.DeepCopy() != nil {
 		t.Fatal("nil DeepCopy receiver should return nil")
 	}
 }
@@ -181,6 +239,10 @@ func TestAddToSchemeRegistersKinds(t *testing.T) {
 		&USBConnection{},
 		&USBDevicePolicy{},
 		&USBDeviceApproval{},
+		&USBDeviceWhitelist{},
+		&USBBackupConfig{},
+		&USBBackup{},
+		&USBRestore{},
 	} {
 		kinds, _, err := scheme.ObjectKinds(obj)
 		if err != nil {
@@ -451,5 +513,225 @@ func TestDeepCopyNonNilReceiversForAllHelperTypes(t *testing.T) {
 	}).DeepCopy()
 	if deviceStatus == nil || deviceStatus.ConnectionInfo == nil || deviceStatus.LastSeen == nil {
 		t.Fatal("USBDeviceStatus.DeepCopy() returned unexpected value")
+	}
+}
+
+func TestDeepCopyBackupRestoreWhitelistTypes(t *testing.T) {
+	t.Parallel()
+
+	now := metav1.NewTime(time.Unix(1710001000, 0))
+
+	// --- USBDeviceWhitelist ---
+	wl := &USBDeviceWhitelist{
+		ObjectMeta: metav1.ObjectMeta{Name: "wl-1"},
+		Spec: USBDeviceWhitelistSpec{
+			Entries: []WhitelistEntry{
+				{Fingerprint: "fp-1", AddedAt: &now, AddedBy: "system", PolicyRef: "default/policy-1"},
+			},
+		},
+		Status: USBDeviceWhitelistStatus{EntryCount: 1, LastUpdated: &now, ObservedGeneration: 2},
+	}
+	wlCopy := wl.DeepCopy()
+	wlCopy.Spec.Entries[0].Fingerprint = "changed"
+	if wl.Spec.Entries[0].Fingerprint != "fp-1" {
+		t.Fatal("whitelist entry mutated")
+	}
+	if wl.DeepCopyObject() == nil {
+		t.Fatal("DeepCopyObject() expected non-nil")
+	}
+
+	wlList := &USBDeviceWhitelistList{Items: []USBDeviceWhitelist{*wl}}
+	wlListCopy := wlList.DeepCopy()
+	wlListCopy.Items[0].Spec.Entries[0].Fingerprint = "changed"
+	if wlList.Items[0].Spec.Entries[0].Fingerprint != "fp-1" {
+		t.Fatal("whitelist list entry mutated")
+	}
+	if wlList.DeepCopyObject() == nil {
+		t.Fatal("DeepCopyObject() expected non-nil")
+	}
+
+	// --- WhitelistEntry ---
+	entry := (&WhitelistEntry{Fingerprint: "fp-a", AddedAt: &now}).DeepCopy()
+	if entry == nil || entry.Fingerprint != "fp-a" || entry.AddedAt == nil {
+		t.Fatal("WhitelistEntry.DeepCopy() returned unexpected value")
+	}
+
+	// --- USBBackupConfig ---
+	bc := &USBBackupConfig{
+		ObjectMeta: metav1.ObjectMeta{Name: "config"},
+		Spec: USBBackupConfigSpec{
+			Schedule:       "0 */6 * * *",
+			RetentionCount: 10,
+			Destination: BackupDestination{
+				Type:      "s3",
+				PVC:       &BackupDestinationPVC{ClaimName: "test", SubPath: "backups/"},
+				S3:        &BackupDestinationS3{Bucket: "b", Endpoint: "e", Region: "r", SecretRef: &BackupDestinationSecret{Name: "s"}},
+				ConfigMap: &BackupDestinationConfigMap{Name: "cm"},
+			},
+			AutoRestore: AutoRestoreConfig{Enabled: true},
+		},
+		Status: USBBackupConfigStatus{LastBackupTime: &now, LastBackupName: "bk-1", BackupCount: 5, HealthStatus: "Healthy"},
+	}
+	bcCopy := bc.DeepCopy()
+	bcCopy.Spec.Destination.S3.Bucket = "changed"
+	if bc.Spec.Destination.S3.Bucket != "b" {
+		t.Fatal("backup config S3 bucket mutated")
+	}
+	bcCopy.Spec.Destination.S3.SecretRef.Name = "changed"
+	if bc.Spec.Destination.S3.SecretRef.Name != "s" {
+		t.Fatal("backup config S3 secret mutated")
+	}
+	bcCopy.Spec.Destination.PVC.ClaimName = "changed"
+	if bc.Spec.Destination.PVC.ClaimName != "test" {
+		t.Fatal("backup config PVC mutated")
+	}
+	bcCopy.Spec.Destination.ConfigMap.Name = "changed"
+	if bc.Spec.Destination.ConfigMap.Name != "cm" {
+		t.Fatal("backup config ConfigMap mutated")
+	}
+	if bc.DeepCopyObject() == nil {
+		t.Fatal("DeepCopyObject() expected non-nil")
+	}
+
+	bcList := &USBBackupConfigList{Items: []USBBackupConfig{*bc}}
+	if bcList.DeepCopy() == nil || bcList.DeepCopyObject() == nil {
+		t.Fatal("USBBackupConfigList DeepCopy expected non-nil")
+	}
+
+	// --- BackupDestination helper types ---
+	destPVC := (&BackupDestinationPVC{ClaimName: "c"}).DeepCopy()
+	if destPVC == nil || destPVC.ClaimName != "c" {
+		t.Fatal("BackupDestinationPVC.DeepCopy() unexpected value")
+	}
+	destS3 := (&BackupDestinationS3{Bucket: "b", SecretRef: &BackupDestinationSecret{Name: "s"}}).DeepCopy()
+	if destS3 == nil || destS3.SecretRef.Name != "s" {
+		t.Fatal("BackupDestinationS3.DeepCopy() unexpected value")
+	}
+	destSecret := (&BackupDestinationSecret{Name: "s"}).DeepCopy()
+	if destSecret == nil || destSecret.Name != "s" {
+		t.Fatal("BackupDestinationSecret.DeepCopy() unexpected value")
+	}
+	destCM := (&BackupDestinationConfigMap{Name: "cm"}).DeepCopy()
+	if destCM == nil || destCM.Name != "cm" {
+		t.Fatal("BackupDestinationConfigMap.DeepCopy() unexpected value")
+	}
+	dest := (&BackupDestination{Type: "pvc", PVC: &BackupDestinationPVC{ClaimName: "c"}}).DeepCopy()
+	if dest == nil || dest.PVC.ClaimName != "c" {
+		t.Fatal("BackupDestination.DeepCopy() unexpected value")
+	}
+	autoRestoreConfig := (&AutoRestoreConfig{Enabled: true}).DeepCopy()
+	if autoRestoreConfig == nil || !autoRestoreConfig.Enabled {
+		t.Fatal("AutoRestoreConfig.DeepCopy() unexpected value")
+	}
+	bcSpec := (&USBBackupConfigSpec{Schedule: "* * * * *", RetentionCount: 5, Destination: BackupDestination{Type: "configmap"}}).DeepCopy()
+	if bcSpec == nil || bcSpec.Schedule != "* * * * *" {
+		t.Fatal("USBBackupConfigSpec.DeepCopy() unexpected value")
+	}
+	bcStatus := (&USBBackupConfigStatus{LastBackupTime: &now, BackupCount: 3}).DeepCopy()
+	if bcStatus == nil || bcStatus.BackupCount != 3 || bcStatus.LastBackupTime == nil {
+		t.Fatal("USBBackupConfigStatus.DeepCopy() unexpected value")
+	}
+
+	// --- USBBackup ---
+	bk := &USBBackup{
+		ObjectMeta: metav1.ObjectMeta{Name: "bk-1"},
+		Spec:       USBBackupSpec{TriggerType: "manual", TriggeredBy: "admin"},
+		Status:     USBBackupStatus{Phase: "Completed", CompletedAt: &now, Checksum: "sha256:abc", ItemCounts: &BackupItemCounts{WhitelistEntries: 5, Policies: 2, Approvals: 3}},
+	}
+	bkCopy := bk.DeepCopy()
+	bkCopy.Status.ItemCounts.WhitelistEntries = 99
+	if bk.Status.ItemCounts.WhitelistEntries != 5 {
+		t.Fatal("backup item counts mutated")
+	}
+	if bk.DeepCopyObject() == nil {
+		t.Fatal("DeepCopyObject() expected non-nil")
+	}
+
+	bkList := &USBBackupList{Items: []USBBackup{*bk}}
+	if bkList.DeepCopy() == nil || bkList.DeepCopyObject() == nil {
+		t.Fatal("USBBackupList DeepCopy expected non-nil")
+	}
+
+	bkSpec := (&USBBackupSpec{TriggerType: "scheduled"}).DeepCopy()
+	if bkSpec == nil || bkSpec.TriggerType != "scheduled" {
+		t.Fatal("USBBackupSpec.DeepCopy() unexpected value")
+	}
+	bkStatus := (&USBBackupStatus{Phase: "InProgress", CompletedAt: &now, ItemCounts: &BackupItemCounts{Policies: 1}}).DeepCopy()
+	if bkStatus == nil || bkStatus.ItemCounts.Policies != 1 || bkStatus.CompletedAt == nil {
+		t.Fatal("USBBackupStatus.DeepCopy() unexpected value")
+	}
+	itemCounts := (&BackupItemCounts{WhitelistEntries: 10}).DeepCopy()
+	if itemCounts == nil || itemCounts.WhitelistEntries != 10 {
+		t.Fatal("BackupItemCounts.DeepCopy() unexpected value")
+	}
+
+	// --- USBRestore ---
+	rs := &USBRestore{
+		ObjectMeta: metav1.ObjectMeta{Name: "restore-1"},
+		Spec: USBRestoreSpec{
+			BackupRef:   RestoreBackupRef{Name: "bk-1"},
+			TriggerType: "automatic",
+			TriggeredBy: "health-monitor",
+			DryRun:      true,
+		},
+		Status: USBRestoreStatus{
+			Phase:                  "Completed",
+			PreRestoreHealthCheck:  &PreRestoreHealthCheck{Status: "Healthy", Reason: "ok", CheckedAt: &now},
+			RestoredItems:          &RestoreItemCounts{WhitelistEntries: 5, Policies: 2, Approvals: 3},
+			ConnectionRevalidation: &ConnectionRevalidation{Total: 10, Valid: 8, Terminated: 2, TerminatedConnections: []string{"conn-a", "conn-b"}},
+			CompletedAt:            &now,
+		},
+	}
+	rsCopy := rs.DeepCopy()
+	rsCopy.Status.ConnectionRevalidation.TerminatedConnections[0] = "changed"
+	if rs.Status.ConnectionRevalidation.TerminatedConnections[0] != "conn-a" {
+		t.Fatal("restore terminated connections mutated")
+	}
+	rsCopy.Status.PreRestoreHealthCheck.Status = "changed"
+	if rs.Status.PreRestoreHealthCheck.Status != "Healthy" {
+		t.Fatal("restore pre-health-check mutated")
+	}
+	rsCopy.Status.RestoredItems.Policies = 99
+	if rs.Status.RestoredItems.Policies != 2 {
+		t.Fatal("restore item counts mutated")
+	}
+	if rs.DeepCopyObject() == nil {
+		t.Fatal("DeepCopyObject() expected non-nil")
+	}
+
+	rsList := &USBRestoreList{Items: []USBRestore{*rs}}
+	if rsList.DeepCopy() == nil || rsList.DeepCopyObject() == nil {
+		t.Fatal("USBRestoreList DeepCopy expected non-nil")
+	}
+
+	rsSpec := (&USBRestoreSpec{BackupRef: RestoreBackupRef{Name: "bk-1"}, TriggerType: "manual"}).DeepCopy()
+	if rsSpec == nil || rsSpec.BackupRef.Name != "bk-1" {
+		t.Fatal("USBRestoreSpec.DeepCopy() unexpected value")
+	}
+	rsStatus := (&USBRestoreStatus{
+		Phase:                  "Restoring",
+		PreRestoreHealthCheck:  &PreRestoreHealthCheck{Status: "ok", CheckedAt: &now},
+		RestoredItems:          &RestoreItemCounts{Approvals: 5},
+		ConnectionRevalidation: &ConnectionRevalidation{Total: 3, TerminatedConnections: []string{"c1"}},
+		CompletedAt:            &now,
+	}).DeepCopy()
+	if rsStatus == nil || rsStatus.PreRestoreHealthCheck == nil || rsStatus.RestoredItems == nil || rsStatus.ConnectionRevalidation == nil || rsStatus.CompletedAt == nil {
+		t.Fatal("USBRestoreStatus.DeepCopy() unexpected value")
+	}
+	backupRef := (&RestoreBackupRef{Name: "bk-a"}).DeepCopy()
+	if backupRef == nil || backupRef.Name != "bk-a" {
+		t.Fatal("RestoreBackupRef.DeepCopy() unexpected value")
+	}
+	preHealth := (&PreRestoreHealthCheck{Status: "ok", CheckedAt: &now}).DeepCopy()
+	if preHealth == nil || preHealth.CheckedAt == nil {
+		t.Fatal("PreRestoreHealthCheck.DeepCopy() unexpected value")
+	}
+	connReval := (&ConnectionRevalidation{Total: 5, TerminatedConnections: []string{"c1", "c2"}}).DeepCopy()
+	if connReval == nil || len(connReval.TerminatedConnections) != 2 {
+		t.Fatal("ConnectionRevalidation.DeepCopy() unexpected value")
+	}
+	rsItemCounts := (&RestoreItemCounts{WhitelistEntries: 3}).DeepCopy()
+	if rsItemCounts == nil || rsItemCounts.WhitelistEntries != 3 {
+		t.Fatal("RestoreItemCounts.DeepCopy() unexpected value")
 	}
 }

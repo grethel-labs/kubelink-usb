@@ -13,6 +13,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	usbv1alpha1 "github.com/grethel-labs/kubelink-usb/api/v1alpha1"
+	"github.com/grethel-labs/kubelink-usb/internal/backup"
 	"github.com/grethel-labs/kubelink-usb/internal/controller"
 )
 
@@ -55,6 +56,19 @@ func main() {
 
 	if err := (&controller.USBDeviceReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme()}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "failed to create USBDevice controller")
+		os.Exit(1)
+	}
+
+	// Initialize backup storage from default configmap-based destination.
+	// In production, this would be loaded from a USBBackupConfig CR.
+	backupStorage := backup.NewConfigMapStorage("kubelink-backup-store")
+
+	if err := (&controller.BackupReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme(), Storage: backupStorage}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "failed to create Backup controller")
+		os.Exit(1)
+	}
+	if err := (&controller.RestoreReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme(), Storage: backupStorage}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "failed to create Restore controller")
 		os.Exit(1)
 	}
 

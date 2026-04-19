@@ -14,7 +14,7 @@ import (
 type SnapshotData struct {
 	Whitelists []usbv1alpha1.USBDeviceWhitelist `json:"whitelists"`
 	Policies   []usbv1alpha1.USBDevicePolicy    `json:"policies"`
-	Approvals  []usbv1alpha1.USBDeviceApproval   `json:"approvals"`
+	Approvals  []usbv1alpha1.USBDeviceApproval  `json:"approvals"`
 }
 
 // Snapshot is the top-level envelope written to backup storage.
