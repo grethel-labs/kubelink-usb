@@ -39,10 +39,12 @@ func (s *PVCStorage) Write(_ context.Context, name string, data []byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if err := os.MkdirAll(s.basePath, 0o750); err != nil {
+	// Use owner-only permissions for directories containing backup data.
+	if err := os.MkdirAll(s.basePath, 0o700); err != nil {
 		return fmt.Errorf("create backup directory: %w", err)
 	}
 	path := s.filePath(name)
+	// Owner-only read/write for backup files containing device configuration.
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return fmt.Errorf("write backup file %s: %w", path, err)
 	}

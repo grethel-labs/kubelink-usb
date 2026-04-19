@@ -6,6 +6,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -106,7 +107,7 @@ func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 // enforceRetention deletes the oldest completed backups when the total exceeds
 // the retention count configured in USBBackupConfig.
-func (r *BackupReconciler) enforceRetention(ctx context.Context, logger interface{ Info(string, ...interface{}) }) {
+func (r *BackupReconciler) enforceRetention(ctx context.Context, logger logr.Logger) {
 	var configs usbv1alpha1.USBBackupConfigList
 	if err := r.List(ctx, &configs); err != nil || len(configs.Items) == 0 {
 		return
