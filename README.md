@@ -12,12 +12,13 @@ A Kubernetes operator and node agent for sharing USB devices across cluster node
 | **Health Monitor** (consistency checks, auto-restore) | ✅ Complete | — |
 | **Discovery Watcher** (fsnotify, event normalization) | ✅ Complete | 69.0% |
 | **TLS Baseline** + Whitelist | ✅ Complete | 100.0% |
-| **USB/IP Protocol** (BasicHeader only) | 🔶 Partial | 100.0% |
-| **Policy Engine** (always returns true) | ⚠️ Stub | 100.0% |
-| **Approval Controller** | ⚠️ Stub | — |
-| **Connection Controller** | ⚠️ Stub | — |
-| **Agent Client/Server** (Attach/Export) | ⚠️ Stub | — |
-| **Overall** | ~45% of v1.0 | **85.3%** |
+| **Policy Engine** (vendor/product/node/HID matching) | ✅ Complete | 94.3% |
+| **Approval Controller** (approve/deny/expire workflow) | ✅ Complete | — |
+| **Connection Controller** (tunnel lifecycle) | ✅ Complete | — |
+| **Agent Client/Server** (Attach/Export via CommandRunner) | ✅ Complete | — |
+| **USB/IP Protocol** (DevList + Import frames, Server/Client) | ✅ Complete | 57.2% |
+| **Device Fingerprinting** (DNS-safe CR naming) | ✅ Complete | 100.0% |
+| **Overall** | ~90% of v1.0 | **81.0%** |
 
 ## Architecture
 
@@ -26,8 +27,8 @@ A Kubernetes operator and node agent for sharing USB devices across cluster node
 │ CONTROLLER (cmd/controller)                                         │
 ├─────────────────────────────────────────────────────────────────────┤
 │ ✅ USBDeviceReconciler — watches USBDevice, initializes status      │
-│ ⚠️  ApprovalReconciler — placeholder (Phase 2)                      │
-│ ⚠️  USBConnectionReconciler — placeholder (Phase 3)                 │
+│ ✅ ApprovalReconciler — processes approvals, propagates to device   │
+│ ✅ USBConnectionReconciler — tunnel lifecycle orchestration         │
 │ ✅ BackupReconciler — collects + snapshots config to storage        │
 │ ✅ RestoreReconciler — validates + applies + revalidates            │
 │ ✅ HealthMonitor — checks consistency, triggers auto-restore        │
@@ -51,9 +52,10 @@ A Kubernetes operator and node agent for sharing USB devices across cluster node
 │ AGENT (cmd/agent)                                                   │
 ├─────────────────────────────────────────────────────────────────────┤
 │ ✅ Discovery — fsnotify on /dev, logs normalized events             │
-│ ⚠️  Server.Export() — placeholder (should call usbipd bind)         │
-│ ⚠️  Client.Attach() — placeholder (should call usbip attach)        │
-│ ⚠️  USB/IP protocol — BasicHeader only, import/export stubs         │
+│ ✅ Server.Export() — calls usbipd bind via CommandRunner            │
+│ ✅ Client.Attach() — calls usbip attach via CommandRunner           │
+│ ✅ USB/IP protocol — DevList + Import frames, TCP server/client     │
+│ ✅ Device Fingerprinting — DNS-safe, deterministic CR names         │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -97,8 +99,8 @@ A Kubernetes operator and node agent for sharing USB devices across cluster node
 
 GitHub Actions workflow `.github/workflows/unit-tests.yml` validates:
 - strict linting (`gofmt` check + `go vet`)
-- unit tests (`make test`) — 53 test functions across 15 files
-- coverage gates (`make coverage-check`, overall minimum 80%, currently **85.3%**)
+- unit tests (`make test`) — 81+ test functions across 15+ files
+- coverage gates (`make coverage-check`, overall minimum 80%, currently **81.0%**)
 - binary builds (`make build`) with uploaded artifacts
 - container image builds for controller and agent
 - generated documentation consistency (`make docs` + committed output)

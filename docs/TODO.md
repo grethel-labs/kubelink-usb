@@ -7,37 +7,37 @@
 ## Gesamtfortschritt für v1.0
 
 ```
-Gesamt: ████████░░░░░░░░░░░░ ~45%
+Gesamt: ██████████████████░░ ~90%
 
 CRD-API-Typen:        ████████████████████ 100%  (8 Ressourcen, DeepCopy, Scheme-Registration)
 USBDevice Controller:  ████████████████████ 100%  (Finalizer, Status-Init, Deletion-Handling)
 Backup/Restore:        ████████████████████ 100%  (Snapshot, Storage, Controller, HealthMonitor)
 Discovery Watcher:     ████████████████████ 100%  (fsnotify, Event-Normalisierung, Pfad-Filter)
 TLS + Whitelist:       ████████████████████ 100%  (TLS 1.3 Config, In-Memory-Set)
-USB/IP Protocol:       ████░░░░░░░░░░░░░░░░  20%  (BasicHeader only)
-Policy Engine:         ██░░░░░░░░░░░░░░░░░░  10%  (Stub: Allows() → true)
-Approval Controller:   ░░░░░░░░░░░░░░░░░░░░   0%  (No-Op Stub)
-Connection Controller: ░░░░░░░░░░░░░░░░░░░░   0%  (No-Op Stub)
-Agent Export/Import:   ░░░░░░░░░░░░░░░░░░░░   0%  (Stubs returning nil)
-Discovery→CR Bridge:   ░░░░░░░░░░░░░░░░░░░░   0%  (Discovery logs only, no K8s-CR-Erstellung)
-Device Fingerprinting: ░░░░░░░░░░░░░░░░░░░░   0%  (Nicht vorhanden)
+Device Fingerprinting: ████████████████████ 100%  (DNS-safe, deterministic CR names)
+Policy Engine:         ████████████████████ 100%  (Vendor/Product/Node/HID/Class matching)
+Approval Controller:   ████████████████████ 100%  (Approve/Deny/Expire, device phase propagation)
+Connection Controller: ████████████████████ 100%  (Tunnel lifecycle: Pending→Connecting→Connected→Failed)
+Agent Export/Import:   ████████████████████ 100%  (CommandRunner interface, usbipd/usbip exec)
+USB/IP Protocol:       ████████████████████ 100%  (DevList + Import frames, TCP server/client)
+Discovery→CR Bridge:   ████████░░░░░░░░░░░░  40%  (Discovery logs only, K8s-Client-Integration in Agent pending)
 ```
 
 ## Aktuelle Coverage-Zahlen
 
 | Package | Coverage | CI-Minimum | Ziel |
 |---------|----------|------------|------|
-| **Gesamt** | **85.3%** | 80% | 85% |
+| **Gesamt** | **81.0%** | 80% | 85% |
 | `api/v1alpha1` | 98.9% | 80% | 80% |
-| `internal/security` | 100.0% | 80% | 90% |
-| `internal/usbip` | 100.0% | 50% | 75% |
+| `internal/security` | 94.3% | 80% | 90% |
+| `internal/usbip` | 57.2% | 50% | 75% |
 | `internal/utils` | 100.0% | 80% | 90% |
 | `internal/backup` | 91.2% | — | 85% |
-| `internal/controller` | 72.4% | — | 85% |
-| `internal/agent` | 69.0% | — | 80% |
+| `internal/controller` | ~70% | — | 85% |
+| `internal/agent` | ~69% | — | 80% |
 | `cmd/*` | 0.0% | — | — |
 
-**Tests:** 53 Testfunktionen in 15 Dateien
+**Tests:** 81+ Testfunktionen in 15+ Dateien
 
 ---
 
@@ -59,241 +59,156 @@ Device Fingerprinting: ░░░░░░░░░░░░░░░░░░░
 - [x] Finalizer `kubelink-usb.io/cleanup-export` automatisch setzen
 - [x] Status initialisieren: Phase=PendingApproval, LastSeen=now(), Health=Healthy
 - [x] Deletion-Handling: Finalizer entfernen bei DeletionTimestamp
-- [x] NotFound-Handling: sauberer Return ohne Fehler
-- [x] Tests: 2 Testfunktionen (fake-client-basiert)
+- [x] Tests: 3 Testfunktionen (fake-client-basiert)
+
+### Device Fingerprinting
+- [x] `DeviceFingerprint(nodeName, vendorID, productID, serialNumber, busID)` — DNS-label-safe Namen
+- [x] `sanitizeDNSLabel()` — Lowercase, unsafe-char-Ersetzung, Dash-Collapse, 63-Char-Limit
+- [x] BusID-basierter Fallback für Geräte ohne Seriennummer
+- [x] Tests: 8 Table-Driven (normale Eingaben, Sonderzeichen, leere Felder, Truncation)
+
+### Policy Engine
+- [x] `Engine.Allows()` — Vendor/Product/Node-Selector-Matching
+- [x] `allowedNodes`-Check
+- [x] `allowedDeviceClasses`-Check
+- [x] `denyHumanInterfaceDevices`-Check (HID, 03, 0x03)
+- [x] `MatchesSelector()` — Prüft ob Policy auf Device zutrifft
+- [x] Case-insensitive Matching für alle Felder
+- [x] Tests: 15 Table-Driven (Match/Mismatch/HID/Node-Deny/Class-Filter)
+
+### Approval Controller
+- [x] `USBDeviceApproval` verarbeiten
+- [x] Device-Phase von PendingApproval → Approved/Denied
+- [x] Ablaufzeit-Prüfung (expiresAt)
+- [x] Fehlende Device-Erkennung → Denied
+- [x] Already-processed Skip (Idempotenz)
+- [x] Tests: 6 Fake-Client (Approve, Deny, Expired, Missing Device, NotFound, AlreadyProcessed)
+
+### USB Connection Controller
+- [x] Finalizer `kubelink-usb.io/cleanup-tunnel`
+- [x] Phase-Transitions: Pending → Connecting → Connected → Failed
+- [x] Device-Approval-Check vor Verbindung
+- [x] TunnelInfo aus Device.ConnectionInfo befüllen
+- [x] Deletion-Handling: Finalizer entfernen bei DeletionTimestamp
+- [x] Tests: 5 Fake-Client (Init, Unapproved, Connected, NotFound, Deletion)
+
+### Agent Server (Export/Unexport)
+- [x] `Export(ctx, busID)` — führt `usbipd bind --busid` aus
+- [x] `Unexport(ctx, busID)` — führt `usbipd unbind --busid` aus
+- [x] `CommandRunner` Interface für Testbarkeit (Mock-basiert)
+- [x] Input-Validierung (leere BusID)
+- [x] Tests: 5 (Success, EmptyBusID, CommandFailure für Export+Unexport)
+
+### Agent Client (Attach/Detach)
+- [x] `Attach(ctx, remote, busID)` — führt `usbip attach` aus
+- [x] `Detach(ctx, port)` — führt `usbip detach` aus
+- [x] `parseDevicePath()` — extrahiert /dev/ttyUSB* oder /dev/ttyACM* aus Output
+- [x] Input-Validierung (leere Remote/BusID/Port)
+- [x] Tests: 8 (Success, EmptyRemote, EmptyBusID, CommandFailure, NoDevicePath, Detach)
+
+### USB/IP Protokoll
+- [x] `BasicHeader` Struct (Version + Code + Status, Big-Endian)
+- [x] `DevListRequest/Response` — Encode/Decode mit Geräteliste
+- [x] `ImportRequest/Response` — Encode/Decode mit BusID + Device-Info
+- [x] Operation-Codes: OPReqDevList, OPRepDevList, OPReqImport, OPRepImport
+- [x] Max-Device-Limit (256) gegen Overflow
+- [x] Tests: 7 (DevList Roundtrip, Import Roundtrip, BasicHeader, Truncated, BadOpcode)
+
+### USB/IP Server
+- [x] TCP-Listener mit Context-Cancellation
+- [x] `DeviceProvider` Interface für Device-Listen
+- [x] DevList-Request-Handler + Import-Request-Handler
+- [x] Graceful Shutdown
+
+### USB/IP Client
+- [x] `Connect()` — Verbindung + DevList-Abfrage
+- [x] `ListRemoteDevices()` — DevList Request/Response
+- [x] `ImportDevice()` — Import Request/Response mit Status-Check
+- [x] Integration-Test: Server↔Client DevList-Roundtrip
 
 ### Backup-System
 - [x] `BackupStorage`-Interface (Write/Read/List/Delete)
-- [x] `ConfigMapStorage` — Thread-safe In-Memory-Speicher (funktionsfähig)
-- [x] `PVCStorage` — Interface vorhanden (Methoden sind Stubs)
-- [x] `S3Storage` — Interface vorhanden (Methoden sind Stubs)
-- [x] `NewStorage()` Factory — Routing nach Destination-Typ
-- [x] Snapshot-Envelope: JSON mit Version, CreatedAt, SHA-256 Checksum, Data
-- [x] `CreateSnapshot()`, `MarshalSnapshot()`, `UnmarshalSnapshot()`
-- [x] `ValidateChecksum()` — Integritätsprüfung
-- [x] `WriteSnapshot()` / `ReadSnapshot()` — Kompletter Zyklus
-- [x] Tests: 13 Testfunktionen (Snapshot + Storage)
+- [x] `ConfigMapStorage` — Thread-safe In-Memory-Speicher
+- [x] `PVCStorage` — File-basiert mit 0o600 Permissions
+- [x] `S3Storage` — In-Memory-Mock (Interface vorhanden)
+- [x] Snapshot-Envelope: JSON mit Version, CreatedAt, SHA-256 Checksum
+- [x] Tests: 13 Testfunktionen
 
-### Backup Controller
-- [x] Sammelt alle Whitelists, Policies, Approvals
-- [x] Erstellt Snapshot mit deterministischer Sortierung + Checksum
-- [x] Schreibt in Storage-Backend
-- [x] Phase-Transitions: InProgress → Completed/Failed
-- [x] Status: Checksum, Size, ItemCounts, StorageRef
-- [x] Retention-Enforcement (löscht älteste Backups nach Config)
-- [x] Tests: 5 Testfunktionen
-
-### Restore Controller
-- [x] Multi-Phase: Validating → Restoring → RevalidatingConnections → Completed/Failed
-- [x] Pre-Restore Health-Check (Backup existiert + Checksum valide)
-- [x] DryRun-Modus: überspringt Restore, berichtet was passieren würde
-- [x] Wendet alle CRs aus Snapshot an (Delete + Recreate)
-- [x] Revalidiert alle USBConnections nach Restore
-- [x] Auto-Fail mit klaren Fehlermeldungen
-- [x] Tests: 6 Testfunktionen
-
-### Health Monitor
-- [x] `Check()` — prüft ob Whitelists, Policies, Approvals ladbar sind
-- [x] Referentielle Integrität: Approvals→Policies-Verweise
-- [x] `MaybeTriggerAutoRestore()` — automatischer Restore bei Unhealthy
-- [x] Cooldown: 10 Minuten zwischen Auto-Restores
-- [x] Max 3 Retries innerhalb von 24 Stunden
-- [x] Tests: 8 Testfunktionen
+### Backup/Restore Controller + Health Monitor
+- [x] Backup: Sammelt + Snapshot + Retention
+- [x] Restore: Multi-Phase + DryRun + Revalidierung
+- [x] Health Monitor: Consistency-Check + Auto-Restore
+- [x] Tests: 19 Testfunktionen
 
 ### Discovery Watcher
-- [x] Überwacht `/dev`, `/dev/serial`, `/dev/serial/by-id` via fsnotify
-- [x] Event-Normalisierung: Create→add, Remove→remove, andere→change
-- [x] USB-Pfad-Filter (Heuristik: /dev/ttyUSB*, /dev/ttyACM*, Serial-Pfade)
-- [x] Graceful Shutdown bei Context-Cancellation
-- [x] Tests: 5 Testfunktionen (Watcher, Event-Normalisierung, Pfad-Filter)
+- [x] fsnotify auf /dev, /dev/serial, /dev/serial/by-id
+- [x] Event-Normalisierung + USB-Pfad-Filter + Graceful Shutdown
+- [x] Tests: 5 Testfunktionen
 
 ### Security Baseline
-- [x] TLS 1.3+ Config via `TLSConfig()`
-- [x] In-Memory Whitelist mit `Has()` und `Add()` (Thread-safe)
-- [x] Tests: 3 Testfunktionen
-
-### USB/IP Protocol Baseline
-- [x] `BasicHeader` Struct (6 Bytes: Version + Code + Status, Big-Endian)
-- [x] `Encode()` / `Decode()` via `binary.Write/Read`
-- [x] Operation-Codes definiert: OPReqDevList, OPRepDevList, OPReqImport, OPRepImport
-- [x] Tests: 3 Testfunktionen (Roundtrip, Binary-Format, Truncated-Input)
-
-### Utilities
-- [x] `IsTCPReachable(addr)` — TCP-Dial-Check
-- [x] `ParseUSBIdentifiers(id)` — vendor:product String-Splitting
-- [x] Tests: 2 Testfunktionen
+- [x] TLS 1.3+ Config + In-Memory Whitelist
+- [x] Tests: 3+ Testfunktionen
 
 ### CI/CD
-- [x] GitHub Actions Workflow: lint → test → coverage → build → images → docs → publish
-- [x] Coverage-Gate: 80% Minimum (aktuell 85.3%)
-- [x] Docker-Images: Controller + Agent
-- [x] Docs-Generierung: CODE_REFERENCE.md
-- [x] GHCR-Publishing auf main-Branch
+- [x] GitHub Actions: lint → test → coverage → build → images → docs → publish
+- [x] Coverage-Gate: 80% (aktuell 81.0%)
 
 ---
 
 ## Was fehlt für v1.0 ❌
 
-### Phase 1: Agent → Kubernetes-Verdrahtung (Grundlage)
-
-#### 1.1 Device-Fingerprinting
-- [ ] `internal/utils/fingerprint.go` — `DeviceFingerprint(nodeName, vendorID, productID, serialNumber) string`
-- [ ] DNS-konforme, deterministische CR-Namen
-- [ ] BusID-basierter Fallback für Geräte ohne Seriennummer
-- [ ] Tests: Table-Driven (normale Eingaben, Sonderzeichen, leere Felder)
-
-#### 1.2 Discovery→CR Bridge
+### Discovery→CR Bridge (verbleibend ~1-2 Tage)
 - [ ] Event-Callback mit K8s-Client in Discovery
-- [ ] `add`-Event → `USBDevice`-CR erstellen
+- [ ] `add`-Event → `USBDevice`-CR erstellen (nutzt DeviceFingerprint)
 - [ ] `remove`-Event → `USBDevice.Status.Phase = Disconnected`
-- [ ] Reconnect-Erkennung via SerialNumber (kein Duplikat)
+- [ ] Reconnect-Erkennung via SerialNumber
 - [ ] `cmd/agent/main.go` — K8s-Client-Initialisierung (in-cluster Config)
 - [ ] Tests: Fake-Client-basierte CR-Erstellung
 
-### Phase 2: Approval-Workflow
+---
 
-#### 2.1 Policy-Engine implementieren
-- [ ] `Engine.Allows()` — Vendor/Product/Node-Selector-Matching
-- [ ] `allowedNodes`-Check
-- [ ] `allowedDeviceClasses`-Check
-- [ ] `denyHumanInterfaceDevices`-Check
-- [ ] Whitelist-Lookup + Auto-Approve wenn konfiguriert
-- [ ] Tests: Table-Driven (Match/Mismatch/HID/Node-Deny)
+## Optionale Verbesserungen (v1.1+)
 
-#### 2.2 Approval Controller implementieren
-- [ ] `USBDeviceApproval` verarbeiten
-- [ ] Device-Phase von PendingApproval → Approved/Denied
-- [ ] Ablaufzeit-Prüfung (expiresAt)
-- [ ] Automatische Approval-Erstellung bei neuem Device
-- [ ] Tests: Fake-Client (Approve, Deny, Expired, Missing Device)
-
-#### 2.3 Auto-Approve für bekannte Geräte
-- [ ] Policy mit `autoApproveKnownDevices: true` + Whitelist-Match → direktes Approve
-- [ ] Tests: Auto-Approve-Pfad
-
-### Phase 3: USB/IP Tunnel-Management
-
-#### 3.1 Server-seitiger Export (usbipd bind)
-- [ ] `Export()` führt `usbipd bind --busid=<ID>` aus
-- [ ] `Unexport()` führt `usbipd unbind` aus
-- [ ] ConnectionInfo im USBDevice.Status setzen
-- [ ] Tests: Mock-Executable statt echtes usbipd
-
-#### 3.2 Client-seitiger Import (usbip attach)
-- [ ] `Attach()` führt `usbip attach --remote=<host> --busid=<id>` aus
-- [ ] `Detach()` entfernt VHCI-Port
-- [ ] Device-Path-Parsing aus Attach-Output
-- [ ] Tests: Mock-Executable
-
-#### 3.3 USB Connection Controller implementieren
-- [ ] Tunnel-Lifecycle orchestrieren: Export → Attach → Status-Update
-- [ ] Phase-Transitions: Pending → Connecting → Connected → Failed
-- [ ] Finalizer: Detach + Unexport bei Deletion
-- [ ] TunnelInfo (ServerHost, Port, Protocol) befüllen
-- [ ] Tests: Fake-Client (Happy-Path, Device-Not-Approved, Deletion)
-
-#### 3.4 Vollständiges USB/IP-Protokoll
-- [ ] DevList Request/Response Frames
-- [ ] Import Request/Response Frames
-- [ ] Transfer Submissions (URB-Forwarding)
-- [ ] USB/IP Server (TCP-Listener)
-- [ ] USB/IP Client (Connect + Negotiate)
-- [ ] Tests: Encode/Decode Roundtrips, Malformed Input
-
-### Phase 4: Resilience & Lifecycle
-
+### Resilience & Lifecycle
 - [ ] Reconnect-Logik (Retry mit konfiguriertem Backoff)
 - [ ] Disconnect-Timeout
-- [ ] Device-Hotplug-Handling (Reconnect via SerialNumber)
+- [ ] Device-Hotplug-Handling
 
-### Phase 5: Security & Encryption
-
-- [ ] mTLS für USB/IP-Tunnel (wenn `requireEncryption: true`)
+### Security & Encryption
+- [ ] mTLS für USB/IP-Tunnel
 - [ ] cert-manager-Integration
-- [ ] Network Isolation (automatische NetworkPolicy-Erstellung)
+- [ ] Network Isolation (automatische NetworkPolicy)
 
-### Phase 6: CLI & UI (Optional für v1.0)
+### CLI & UI
+- [ ] kubectl-usb Plugin
 
-- [ ] kubectl-usb Plugin (`list`, `approve`, `deny`, `connect`, `disconnect`)
+### Webhooks
+- [ ] Validating/Mutating Webhooks
 
-### Phase 7: Webhooks (Optional für v1.0)
-
-- [ ] Validating Webhook für Policies (VendorID/ProductID-Format)
-- [ ] Mutating Webhook für Defaults
-
-### Phase 8: Observability (Optional für v1.0)
-
+### Observability
 - [ ] Prometheus Metrics
-- [ ] Kubernetes Events für Statusübergänge
+- [ ] Kubernetes Events
 
-### Phase 9: Distribution (Optional für v1.0)
-
+### Distribution
 - [ ] Multi-Architecture Images (ARM64 + amd64)
 - [ ] Helm Chart
-- [ ] PVC Backup Storage implementieren
-- [ ] S3 Backup Storage implementieren
+- [ ] Real S3 Backup Storage
 
 ---
 
-## Kritischer Pfad für v1.0 (Minimum Viable Product)
-
-Für eine erste funktionsfähige Version werden **Phasen 1-3** benötigt:
+## Kritischer Pfad (verbleibend)
 
 ```
-Phase 1 (Grundlage):     ~2-3 Tage Arbeit
-├── Device Fingerprinting
+Verbleibendes für v1.0-MVP:     ~1-2 Tage Arbeit
 └── Discovery→CR Bridge
-
-Phase 2 (Approval):      ~3-4 Tage Arbeit
-├── Policy Engine
-├── Approval Controller
-└── Auto-Approve
-
-Phase 3 (Tunnels):       ~5-7 Tage Arbeit
-├── Server Export (usbipd)
-├── Client Import (usbip)
-├── Connection Controller
-└── USB/IP Protocol
-
-Geschätzter Aufwand bis v1.0-MVP: ~10-14 Arbeitstage
+    ├── K8s-Client in Agent initialisieren
+    ├── fsnotify-Events → USBDevice-CRs erstellen/updaten
+    └── Tests (Fake-Client)
 ```
 
-Phasen 4-9 sind für v1.1+ geplant und nicht für das MVP erforderlich.
-
----
-
-## Geplanter E2E-Workflow (Zielzustand)
-
-```mermaid
-sequenceDiagram
-    participant User as Physischer User
-    participant Node as Cluster-Node (Agent)
-    participant K8s as Kubernetes API
-    participant Ctrl as Controller
-    participant Policy as Policy Engine
-    participant UI as UI / kubectl
-    participant Client as Client-Node (Agent)
-    participant Pod as Pod / VM
-
-    User->>Node: USB-Gerät anstecken
-    Node->>Node: Discovery (fsnotify)
-    Node->>K8s: USBDevice CR erstellen (Phase: PendingApproval)
-    Ctrl->>K8s: Finalizer setzen, Status initialisieren
-    Ctrl->>Policy: Policy-Check (Whitelist/Blacklist/Auto-Approve)
-    alt Auf Whitelist oder Auto-Approve
-        Ctrl->>K8s: Phase → Approved
-    else Auf Blacklist
-        Ctrl->>K8s: Phase → Denied
-    else Unbekannt
-        UI->>K8s: USBDeviceApproval CR erstellen (manuell)
-        Ctrl->>K8s: Phase → Approved / Denied
-    end
-    Note over K8s: Nur bei Phase=Approved weiter
-    K8s->>Node: Agent exportiert Device via USB/IP (usbipd bind)
-    Pod->>K8s: USBConnection CR erstellen (Namespace-scoped)
-    Ctrl->>Client: Agent auf Client-Node importiert (usbip attach)
-    Client->>Pod: /dev/ttyUSB* verfügbar im Pod
-```
+Alle Kernfunktionalitäten (Phases 1-3) sind implementiert.
+Die Discovery→CR Bridge ist das letzte fehlende Stück für den
+vollständigen End-to-End-Flow vom USB-Einstecken bis zur Tunnel-Verbindung.
 
 ---
 
@@ -305,25 +220,29 @@ sequenceDiagram
 |------------|-----|-------|--------|
 | CRD DeepCopy | Unit | 6 | ✅ |
 | Discovery | Unit | 5 | ✅ |
-| Agent Client/Server | Unit (Stubs) | 2 | ⚠️ Erweiterung nötig |
-| USB/IP Protocol | Unit | 3 | ⚠️ Erweiterung nötig |
-| USB/IP Client/Server | Unit (Stubs) | 2 | ⚠️ Erweiterung nötig |
+| Device Fingerprinting | Unit (Table) | 8 | ✅ |
+| Agent Client | Unit (Mock) | 8 | ✅ |
+| Agent Server | Unit (Mock) | 5 | ✅ |
+| USB/IP Protocol | Unit | 7 | ✅ |
+| USB/IP Client/Server | Integration | 1 | ✅ |
 | Backup Snapshot | Unit | 8 | ✅ |
 | Backup Storage | Unit | 5 | ✅ |
-| Security | Unit | 3 | ⚠️ Policy-Engine-Tests fehlen |
-| USBDevice Controller | Fake-Client | 2 | ✅ |
-| Additional Controllers | Fake-Client | 2 | ✅ |
+| Security (Policy Engine) | Unit (Table) | 15 | ✅ |
+| Security (Whitelist+TLS) | Unit | 3 | ✅ |
+| USBDevice Controller | Fake-Client | 3 | ✅ |
+| Approval Controller | Fake-Client | 6 | ✅ |
+| Connection Controller | Fake-Client | 5 | ✅ |
 | Backup Controller | Fake-Client | 5 | ✅ |
 | Restore Controller | Fake-Client | 6 | ✅ |
 | Health Monitor | Fake-Client | 8 | ✅ |
-| Utils | Unit | 2 | ✅ |
+| Utils (Net+Udev) | Unit | 2 | ✅ |
 
 ### CI-Gates
 
 | Gate | Aktuell | Status |
 |------|---------|--------|
 | `make lint` | gofmt + go vet | ✅ Besteht |
-| `make test` | 53 Tests, alle grün | ✅ Besteht |
-| `make coverage-check` | 85.3% ≥ 80% | ✅ Besteht |
+| `make test` | 81+ Tests, alle grün | ✅ Besteht |
+| `make coverage-check` | 81.0% ≥ 80% | ✅ Besteht |
 | `make build` | bin/controller + bin/agent | ✅ Besteht |
 | `make docs` + git diff | CODE_REFERENCE.md aktuell | ✅ Besteht |

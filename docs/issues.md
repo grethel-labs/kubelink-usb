@@ -4,56 +4,12 @@
 
 ## Kritischer Pfad (v1.0 MVP)
 
-- **Issue #1: Device Fingerprinting** ⬆️ HÖCHSTE PRIORITÄT
-  Labels: `enhancement`, `phase-1`, `blocking`
-  Status: ❌ Nicht begonnen
-  Beschreibung: `DeviceFingerprint()` Funktion in `internal/utils/` für deterministische, DNS-konforme CR-Namen.
-  Akzeptanz: Gleiche Geräte erzeugen immer denselben Namen, BusID-Fallback für Geräte ohne Serial.
-  Blockiert: Issue #2 (Discovery→CR Bridge)
-
 - **Issue #2: Discovery-zu-CR-Bridge** ⬆️ HÖCHSTE PRIORITÄT
   Labels: `enhancement`, `phase-1`, `blocking`
-  Status: ❌ Nicht begonnen
+  Status: 🔶 Teilweise (Discovery loggt Events, aber erstellt noch keine K8s-CRs)
   Beschreibung: Agent erstellt automatisch USBDevice-CRs bei Discovery-Events.
   Akzeptanz: `add`→CR erstellen, `remove`→Phase=Disconnected, Reconnect-Erkennung via Serial.
-  Blockiert: Alle weiteren Phasen
-  Abhängig von: Issue #1
-
-- **Issue #3: Policy-Engine implementieren**
-  Labels: `enhancement`, `security`, `phase-2`
-  Status: ⚠️ Stub (Allows() → true)
-  Beschreibung: VendorID/ProductID/Node-Selector-Matching, Restriction-Auswertung, HID-Blocking.
-  Akzeptanz: Policy-Selektoren matchen korrekt, denyHumanInterfaceDevices blockiert HID.
-
-- **Issue #4: Approval Workflow implementieren**
-  Labels: `enhancement`, `phase-2`
-  Status: ⚠️ Stub (No-Op Controller)
-  Beschreibung: ApprovalReconciler verarbeitet USBDeviceApproval-CRs und setzt Device-Phase.
-  Akzeptanz: Approve→Approved, Deny→Denied, Ablaufzeit-Prüfung, Auto-Approve via Whitelist.
-
-- **Issue #5: USB Connection Controller implementieren**
-  Labels: `enhancement`, `phase-3`
-  Status: ⚠️ Stub (No-Op Controller)
-  Beschreibung: Tunnel-Lifecycle orchestrieren: Export→Attach→Status-Update mit Finalizer-Cleanup.
-  Akzeptanz: Phase-Transitions Pending→Connecting→Connected→Failed, TunnelInfo befüllt.
-
-- **Issue #6: Server-seitiger Export (usbipd bind)**
-  Labels: `enhancement`, `phase-3`
-  Status: ⚠️ Stub (nil return)
-  Beschreibung: Export/Unexport via os/exec-basierte usbipd-Aufrufe auf Source-Node.
-  Akzeptanz: Export führt `usbipd bind` aus, Fehler korrekt propagiert.
-
-- **Issue #7: Client-seitiger Import (usbip attach)**
-  Labels: `enhancement`, `phase-3`
-  Status: ⚠️ Stub (nil return)
-  Beschreibung: Attach/Detach via os/exec auf Client-Node.
-  Akzeptanz: Attach gibt Device-Path zurück, Detach entfernt VHCI-Port.
-
-- **Issue #8: Vollständiges USB/IP-Protokoll**
-  Labels: `enhancement`, `phase-3`
-  Status: 🔶 Partial (nur BasicHeader)
-  Beschreibung: DevList/Import Request/Response Frames, Transfer Submissions, Server+Client.
-  Akzeptanz: Vollständiger In-Process Device-List-Exchange.
+  Verbleibend: K8s-Client-Initialisierung im Agent, Event-Callback mit CR-Erstellung.
 
 ## Verbesserungen (v1.1+)
 
@@ -105,16 +61,10 @@
   Beschreibung: ARM64 (Raspberry Pi) + amd64 Container Images.
   Akzeptanz: Buildx Multi-Platform, GHCR-Publishing für beide Architekturen.
 
-- **Issue #17: PVC Backup Storage**
+- **Issue #18: S3 Backup Storage (Real SDK)**
   Labels: `enhancement`
-  Status: ⚠️ Stub (Interface only)
-  Beschreibung: `PVCStorage` Write/Read/List/Delete implementieren.
-  Akzeptanz: Backups auf PVC-Mount persistiert, Roundtrip-Test.
-
-- **Issue #18: S3 Backup Storage**
-  Labels: `enhancement`
-  Status: ⚠️ Stub (Interface only)
-  Beschreibung: `S3Storage` Write/Read/List/Delete implementieren.
+  Status: ⚠️ Mock (In-Memory, kein echtes S3 SDK)
+  Beschreibung: `S3Storage` Write/Read/List/Delete mit echtem AWS SDK implementieren.
   Akzeptanz: Backups in S3-Bucket persistiert, Roundtrip-Test.
 
 - **Issue #19: Helm Chart**
@@ -125,11 +75,18 @@
 
 ## Bereits erledigt ✅
 
+- ~~Issue #1: Device Fingerprinting~~ → DNS-label-safe, deterministic CR names ✅
+- ~~Issue #3: Policy-Engine implementieren~~ → Vendor/Product/Node/HID/Class Matching ✅
+- ~~Issue #4: Approval Workflow~~ → Approve/Deny/Expire mit Device-Phase-Propagation ✅
+- ~~Issue #5: USB Connection Controller~~ → Tunnel-Lifecycle mit Finalizer ✅
+- ~~Issue #6: Server-seitiger Export~~ → CommandRunner + usbipd bind/unbind ✅
+- ~~Issue #7: Client-seitiger Import~~ → CommandRunner + usbip attach/detach ✅
+- ~~Issue #8: Vollständiges USB/IP-Protokoll~~ → DevList/Import Frames + Server/Client ✅
+- ~~Issue #17: PVC Backup Storage~~ → File-basiert mit 0o600 Permissions ✅
 - ~~Issue: CRD API Types~~ → 8 Ressourcen mit DeepCopy ✅
 - ~~Issue: USBDevice Reconciler~~ → Finalizer + Status-Init ✅
 - ~~Issue: Discovery Watcher~~ → fsnotify + Event-Normalisierung ✅
 - ~~Issue: Backup/Restore System~~ → Snapshot, Storage, Controller, HealthMonitor ✅
 - ~~Issue: TLS Baseline~~ → TLS 1.3 Config ✅
 - ~~Issue: Whitelist~~ → In-Memory Set ✅
-- ~~Issue: USB/IP BasicHeader~~ → Encode/Decode ✅
 - ~~Issue: CI Pipeline~~ → Lint, Test, Coverage, Build, Images, Docs, Publish ✅

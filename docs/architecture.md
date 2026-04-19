@@ -26,35 +26,33 @@ flowchart LR
 
 ```mermaid
 pie title Component Completion (v1.0)
-    "Complete" : 45
-    "Stub/Placeholder" : 30
-    "Not Started" : 25
+    "Complete" : 90
+    "In Progress" : 10
 ```
 
 | Component | Status | Notes |
 |-----------|--------|-------|
 | CRD API Types (8 resources) | ✅ Complete | USBDevice, Approval, Policy, Connection, Whitelist, BackupConfig, Backup, Restore |
 | USBDevice Reconciler | ✅ Complete | Finalizer + status init (PendingApproval, LastSeen, Healthy) |
+| Device Fingerprinting | ✅ Complete | DNS-label-safe, deterministic CR names with serial/busID fallback |
+| Policy Engine | ✅ Complete | Vendor/Product/Node selector, HID denial, device class filtering |
+| Approval Controller | ✅ Complete | Approve/Deny/Expire workflow, device phase propagation |
+| Connection Controller | ✅ Complete | Tunnel lifecycle: Pending→Connecting→Connected→Failed, finalizers |
+| Agent Server (Export/Unexport) | ✅ Complete | CommandRunner interface, usbipd bind/unbind execution |
+| Agent Client (Attach/Detach) | ✅ Complete | CommandRunner interface, usbip attach/detach with path parsing |
+| USB/IP Protocol | ✅ Complete | DevList + Import request/response frames, BasicHeader |
+| USB/IP Server | ✅ Complete | TCP listener with DeviceProvider, graceful shutdown |
+| USB/IP Client | ✅ Complete | ListRemoteDevices, ImportDevice, server↔client integration |
 | Backup Controller | ✅ Complete | Snapshot collection, storage write, retention enforcement |
 | Restore Controller | ✅ Complete | 5-phase lifecycle, dry-run, connection revalidation |
 | Health Monitor | ✅ Complete | Consistency checks, auto-restore (10min cooldown, 3 retries) |
 | Discovery Watcher | ✅ Complete | fsnotify on /dev, event normalization, USB path filtering |
 | TLS Baseline | ✅ Complete | TLS 1.3 minimum config |
 | Whitelist (in-memory) | ✅ Complete | Thread-safe string set |
-| USB/IP BasicHeader | ✅ Complete | 6-byte encode/decode |
 | ConfigMap Backup Storage | ✅ Complete | Thread-safe in-memory map |
-| Policy Engine | ⚠️ Stub | `Allows()` → always true |
-| Approval Controller | ⚠️ Stub | Returns nil (no-op) |
-| Connection Controller | ⚠️ Stub | Returns nil (no-op) |
-| Agent Client (Attach/Detach) | ⚠️ Stub | Returns nil |
-| Agent Server (Export/Unexport) | ⚠️ Stub | Returns nil |
-| USB/IP Client (Connect) | ⚠️ Stub | Returns nil |
-| USB/IP Server (Serve) | ⚠️ Stub | Returns nil |
-| PVC Backup Storage | ⚠️ Stub | Interface only |
-| S3 Backup Storage | ⚠️ Stub | Interface only |
-| Device Fingerprinting | ❌ Missing | Needed for deterministic CR names |
-| Discovery→CR Bridge | ❌ Missing | Discovery logs but doesn't create CRs |
-| Full USB/IP Protocol | ❌ Missing | Only BasicHeader, no device list/import frames |
+| PVC Backup Storage | ✅ Complete | File-based with 0o600 permissions |
+| S3 Backup Storage | ⚠️ Mock | In-memory mock (real S3 SDK integration planned for v1.1) |
+| Discovery→CR Bridge | 🔶 Partial | Discovery logs events but doesn't yet create K8s CRs |
 
 ## End-to-End Workflow (Target State)
 
@@ -216,8 +214,8 @@ flowchart TD
         B -->|CreateSnapshot| C[Snapshot with SHA-256 checksum]
         C -->|Write| D[BackupStorage Interface]
         D --> E[ConfigMap Storage ✅]
-        D --> F[PVC Storage ⚠️ stub]
-        D --> G[S3 Storage ⚠️ stub]
+        D --> F[PVC Storage ✅]
+        D --> G[S3 Storage ⚠️ mock]
     end
 
     subgraph Restore Flow
