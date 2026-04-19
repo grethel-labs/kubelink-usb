@@ -1,7 +1,9 @@
 package usbip
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 	"net"
 )
@@ -80,8 +82,8 @@ func handleDevList(conn net.Conn, provider DeviceProvider) {
 
 func handleImport(conn net.Conn, provider DeviceProvider) {
 	var busID [32]byte
-	if err := (&BasicHeader{}).Decode(conn); err != nil {
-		// Read busID bytes that follow the header already read by caller.
+	if err := binary.Read(conn, binary.BigEndian, &busID); err != nil {
+		return
 	}
 
 	resp := &ImportResponse{
@@ -90,7 +92,7 @@ func handleImport(conn net.Conn, provider DeviceProvider) {
 	}
 
 	if provider != nil {
-		busIDStr := string(busID[:])
+		busIDStr := string(bytes.TrimRight(busID[:], "\x00"))
 		if dev, ok := provider.GetDevice(busIDStr); ok {
 			resp.BusNum = dev.BusNum
 			resp.DevNum = dev.DevNum
