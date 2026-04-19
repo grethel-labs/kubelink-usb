@@ -124,7 +124,8 @@ func (m *HealthMonitor) MaybeTriggerAutoRestore(ctx context.Context, result Heal
 			logger.Info("auto-restore cooldown active", "lastRestore", rs.Name, "age", age)
 			return false, nil
 		}
-		if rs.Status.Phase == "Failed" {
+		// Only count failures within the last 24 hours for retry limiting.
+		if rs.Status.Phase == "Failed" && age < 24*time.Hour {
 			recentAutoRestores++
 		}
 	}

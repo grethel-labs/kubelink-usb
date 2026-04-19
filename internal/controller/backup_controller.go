@@ -73,7 +73,9 @@ func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	snap, err := backup.WriteSnapshot(ctx, r.Storage, bk.Name, whitelists.Items, policies.Items, approvals.Items)
 	if err != nil {
 		bk.Status.Phase = "Failed"
-		_ = r.Status().Update(ctx, &bk)
+		if statusErr := r.Status().Update(ctx, &bk); statusErr != nil {
+			logger.Error(statusErr, "failed to update backup status to Failed")
+		}
 		logger.Error(err, "backup failed")
 		return ctrl.Result{}, nil
 	}

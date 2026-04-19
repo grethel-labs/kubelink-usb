@@ -199,7 +199,7 @@ func (r *RestoreReconciler) phaseRevalidating(ctx context.Context, restore *usbv
 		return ctrl.Result{}, err
 	}
 
-	// Load current whitelists for validation.
+	// Load current whitelists for connection validation.
 	var whitelists usbv1alpha1.USBDeviceWhitelistList
 	if err := r.List(ctx, &whitelists); err != nil {
 		return ctrl.Result{}, err
@@ -229,6 +229,21 @@ func (r *RestoreReconciler) phaseRevalidating(ctx context.Context, restore *usbv
 			revalidation.Terminated++
 			revalidation.TerminatedConnections = append(revalidation.TerminatedConnections, conn.Name)
 			continue
+		}
+
+		// Verify the device is still whitelisted by checking if any fingerprint
+		// containing its vendor/product/serial info exists.
+		deviceFP := device.Spec.NodeName + "-" + device.Spec.VendorID + "-" + device.Spec.ProductID + "-" + device.Spec.SerialNumber
+		if len(fingerprints) > 0 {
+			if _, ok := fingerprints[deviceFP]; !ok {
+				conn.Status.Phase = "Failed"
+				if statusErr := r.Status().Update(ctx, conn); statusErr != nil {
+					logger.Error(statusErr, "terminate non-whitelisted connection", "name", conn.Name)
+				}
+				revalidation.Terminated++
+				revalidation.TerminatedConnections = append(revalidation.TerminatedConnections, conn.Name)
+				continue
+			}
 		}
 		revalidation.Valid++
 	}

@@ -43,7 +43,7 @@ func (s *PVCStorage) Write(_ context.Context, name string, data []byte) error {
 		return fmt.Errorf("create backup directory: %w", err)
 	}
 	path := s.filePath(name)
-	if err := os.WriteFile(path, data, 0o640); err != nil {
+	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return fmt.Errorf("write backup file %s: %w", path, err)
 	}
 	return nil
