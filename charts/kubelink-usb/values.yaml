@@ -1,0 +1,22 @@
+controller:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/grethel-labs/kubelink-usb-controller
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources: {}
+
+agent:
+  image:
+    repository: ghcr.io/grethel-labs/kubelink-usb-agent
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources: {}
+
+serviceAccount:
+  controller:
+    create: true
+    name: ""
+  agent:
+    create: true
+    name: ""

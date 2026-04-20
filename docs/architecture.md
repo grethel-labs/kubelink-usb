@@ -11,9 +11,50 @@ flowchart LR
     D --> F[USBConnection CR]
     F --> G[Agent on Client Node]
     G --> H[Pod via /dev/ttyUSB*]
+
+    subgraph Backup System
+        I[USBBackupConfig CR] --> J[BackupReconciler]
+        J --> K[USBBackup CR]
+        K --> L[BackupStorage]
+        L --> M[ConfigMap / PVC / S3]
+        N[RestoreReconciler] --> O[USBRestore CR]
+        P[HealthMonitor] --> N
+    end
 ```
 
-## End-to-End Workflow
+## Implementation Status
+
+```mermaid
+pie title Component Completion (v1.0)
+    "Complete" : 90
+    "In Progress" : 10
+```
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| CRD API Types (8 resources) | ✅ Complete | USBDevice, Approval, Policy, Connection, Whitelist, BackupConfig, Backup, Restore |
+| USBDevice Reconciler | ✅ Complete | Finalizer + status init (PendingApproval, LastSeen, Healthy) |
+| Device Fingerprinting | ✅ Complete | DNS-label-safe, deterministic CR names with serial/busID fallback |
+| Policy Engine | ✅ Complete | Vendor/Product/Node selector, HID denial, device class filtering |
+| Approval Controller | ✅ Complete | Approve/Deny/Expire workflow, device phase propagation |
+| Connection Controller | ✅ Complete | Tunnel lifecycle: Pending→Connecting→Connected→Failed, finalizers |
+| Agent Server (Export/Unexport) | ✅ Complete | CommandRunner interface, usbipd bind/unbind execution |
+| Agent Client (Attach/Detach) | ✅ Complete | CommandRunner interface, usbip attach/detach with path parsing |
+| USB/IP Protocol | ✅ Complete | DevList + Import request/response frames, BasicHeader |
+| USB/IP Server | ✅ Complete | TCP listener with DeviceProvider, graceful shutdown |
+| USB/IP Client | ✅ Complete | ListRemoteDevices, ImportDevice, server↔client integration |
+| Backup Controller | ✅ Complete | Snapshot collection, storage write, retention enforcement |
+| Restore Controller | ✅ Complete | 5-phase lifecycle, dry-run, connection revalidation |
+| Health Monitor | ✅ Complete | Consistency checks, auto-restore (10min cooldown, 3 retries) |
+| Discovery Watcher | ✅ Complete | fsnotify on /dev, event normalization, USB path filtering |
+| TLS Baseline | ✅ Complete | TLS 1.3 minimum config |
+| Whitelist (in-memory) | ✅ Complete | Thread-safe string set |
+| ConfigMap Backup Storage | ✅ Complete | Thread-safe in-memory map |
+| PVC Backup Storage | ✅ Complete | File-based with 0o600 permissions |
+| S3 Backup Storage | ⚠️ Mock | In-memory mock (real S3 SDK integration planned for v1.1) |
+| Discovery→CR Bridge | 🔶 Partial | Discovery logs events but doesn't yet create K8s CRs |
+
+## End-to-End Workflow (Target State)
 
 ```mermaid
 sequenceDiagram
@@ -54,12 +95,16 @@ erDiagram
     USBDevice ||--o{ USBConnection : "referenced by"
     USBDevicePolicy ||--o{ USBDeviceApproval : "governs"
     USBConnection }o--|| Pod : "serves device to"
+    USBDeviceWhitelist ||--o{ USBDevice : "auto-approves"
+    USBBackupConfig ||--o{ USBBackup : "configures"
+    USBBackup ||--o{ USBRestore : "source for"
 
     USBDevice {
         string busID
         string nodeName
         string vendorID
         string productID
+        string serialNumber
         string phase "PendingApproval|Approved|Denied|Disconnected"
     }
     USBDeviceApproval {
@@ -67,18 +112,42 @@ erDiagram
         string requester
         string phase "Pending|Approved|Denied"
         string approvedBy
+        time expiresAt
     }
     USBDevicePolicy {
         string vendorID "selector"
         string productID "selector"
         string mode "manual|auto"
         bool autoApproveKnownDevices
+        bool denyHumanInterfaceDevices
     }
     USBConnection {
         string deviceRef
         string clientNode
         string phase "Pending|Connecting|Connected|Failed"
         string clientDevicePath
+    }
+    USBDeviceWhitelist {
+        string entries "fingerprint list"
+        int32 entryCount
+    }
+    USBBackupConfig {
+        string schedule
+        int32 retentionCount
+        string destinationType "pvc|configmap|s3"
+        bool autoRestoreEnabled
+    }
+    USBBackup {
+        string triggerType "manual|scheduled"
+        string phase "InProgress|Completed|Failed"
+        string checksum "sha256"
+        string size
+    }
+    USBRestore {
+        string backupRef
+        string triggerType "manual|automatic"
+        string phase "Validating|Restoring|RevalidatingConnections|Completed|Failed"
+        bool dryRun
     }
 ```
 
@@ -112,14 +181,67 @@ stateDiagram-v2
     Failed --> [*]: Connection deleted
 ```
 
+### USBBackup Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> InProgress: Backup created
+    InProgress --> Completed: Snapshot written + checksum computed
+    InProgress --> Failed: Storage error or resource collection failure
+    Completed --> [*]: Retained or deleted by retention policy
+```
+
+### USBRestore Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Validating: Restore created
+    Validating --> Restoring: Backup exists + checksum valid
+    Validating --> Completed: DryRun mode (validation only)
+    Validating --> Failed: Backup not found or checksum mismatch
+    Restoring --> RevalidatingConnections: Resources applied
+    RevalidatingConnections --> Completed: All connections validated
+    RevalidatingConnections --> Completed: Invalid connections terminated
+    Restoring --> Failed: Apply error
+```
+
+## Backup/Restore Architecture
+
+```mermaid
+flowchart TD
+    subgraph Backup Flow
+        A[BackupReconciler] -->|List| B[Whitelists + Policies + Approvals]
+        B -->|CreateSnapshot| C[Snapshot with SHA-256 checksum]
+        C -->|Write| D[BackupStorage Interface]
+        D --> E[ConfigMap Storage ✅]
+        D --> F[PVC Storage ✅]
+        D --> G[S3 Storage ⚠️ mock]
+    end
+
+    subgraph Restore Flow
+        H[RestoreReconciler] -->|Phase 1| I[Validate backup + checksum]
+        I -->|Phase 2| J[Delete + recreate CRs from snapshot]
+        J -->|Phase 3| K[Revalidate all USBConnections]
+        K -->|Phase 4| L[Mark Completed]
+    end
+
+    subgraph Health Monitor
+        M[HealthMonitor.Check] -->|Unhealthy?| N[MaybeTriggerAutoRestore]
+        N -->|Cooldown OK?| O[Create USBRestore CR]
+        N -->|Max retries?| P[Give up]
+    end
+```
+
 ## Security Model
 
 - Manual approval by default (`PendingApproval` → `Approved`)
 - Policy whitelist/blacklist controls via `USBDevicePolicy` selector
 - Auto-approve known devices via fingerprint whitelist
 - Optional mTLS encryption for USB/IP tunnels (`requireEncryption` flag)
-- Network isolation via automatic `NetworkPolicy` generation
+- Network isolation via automatic `NetworkPolicy` generation (planned)
 - HID device class blocking (`denyHumanInterfaceDevices`)
 - Namespace-scoped connections with allowed-namespace restrictions
 - Finalizer-based cleanup for exported devices and tunnel teardown
 - Max concurrent connections limit per device
+- Backup integrity via SHA-256 checksums
+- Auto-restore with cooldown (10min) and retry limits (max 3)

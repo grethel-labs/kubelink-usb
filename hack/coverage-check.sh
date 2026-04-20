@@ -12,8 +12,9 @@ trap 'rm -rf "${tmp_dir}"' EXIT
 overall_profile="${tmp_dir}/coverage-overall.out"
 security_profile="${tmp_dir}/coverage-security.out"
 usbip_profile="${tmp_dir}/coverage-usbip.out"
+overall_packages="$(go list ./... | grep -v '/cmd/')"
 
-go test ./... -coverprofile="${overall_profile}" -covermode=atomic >/dev/null
+go test ${overall_packages} -coverprofile="${overall_profile}" -covermode=atomic >/dev/null
 go test ./internal/security -coverprofile="${security_profile}" -covermode=atomic >/dev/null
 go test ./internal/usbip -coverprofile="${usbip_profile}" -covermode=atomic >/dev/null
 

@@ -100,6 +100,9 @@ func (in *USBConnectionSpec) DeepCopy() *USBConnectionSpec {
 
 func (in *USBConnectionStatus) DeepCopyInto(out *USBConnectionStatus) {
 	*out = *in
+	if in.LastRetryTime != nil {
+		out.LastRetryTime = in.LastRetryTime.DeepCopy()
+	}
 	if in.TunnelInfo != nil {
 		out.TunnelInfo = new(USBConnectionTunnelInfo)
 		*out.TunnelInfo = *in.TunnelInfo
@@ -448,3 +451,486 @@ func (in *USBDeviceStatus) DeepCopy() *USBDeviceStatus {
 	in.DeepCopyInto(out)
 	return out
 }
+
+// --- USBDeviceWhitelist DeepCopy ---
+
+func (in *WhitelistEntry) DeepCopyInto(out *WhitelistEntry) {
+	*out = *in
+	if in.AddedAt != nil {
+		out.AddedAt = in.AddedAt.DeepCopy()
+	}
+}
+
+func (in *WhitelistEntry) DeepCopy() *WhitelistEntry {
+	if in == nil {
+		return nil
+	}
+	out := new(WhitelistEntry)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *USBDeviceWhitelist) DeepCopyInto(out *USBDeviceWhitelist) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	in.Spec.DeepCopyInto(&out.Spec)
+	in.Status.DeepCopyInto(&out.Status)
+}
+
+func (in *USBDeviceWhitelist) DeepCopy() *USBDeviceWhitelist {
+	if in == nil {
+		return nil
+	}
+	out := new(USBDeviceWhitelist)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *USBDeviceWhitelist) DeepCopyObject() runtime.Object { return in.DeepCopy() }
+
+func (in *USBDeviceWhitelistSpec) DeepCopyInto(out *USBDeviceWhitelistSpec) {
+	*out = *in
+	if in.Entries != nil {
+		out.Entries = make([]WhitelistEntry, len(in.Entries))
+		for i := range in.Entries {
+			in.Entries[i].DeepCopyInto(&out.Entries[i])
+		}
+	}
+}
+
+func (in *USBDeviceWhitelistSpec) DeepCopy() *USBDeviceWhitelistSpec {
+	if in == nil {
+		return nil
+	}
+	out := new(USBDeviceWhitelistSpec)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *USBDeviceWhitelistStatus) DeepCopyInto(out *USBDeviceWhitelistStatus) {
+	*out = *in
+	if in.LastUpdated != nil {
+		out.LastUpdated = in.LastUpdated.DeepCopy()
+	}
+}
+
+func (in *USBDeviceWhitelistStatus) DeepCopy() *USBDeviceWhitelistStatus {
+	if in == nil {
+		return nil
+	}
+	out := new(USBDeviceWhitelistStatus)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *USBDeviceWhitelistList) DeepCopyInto(out *USBDeviceWhitelistList) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
+	if in.Items != nil {
+		out.Items = make([]USBDeviceWhitelist, len(in.Items))
+		for i := range in.Items {
+			in.Items[i].DeepCopyInto(&out.Items[i])
+		}
+	}
+}
+
+func (in *USBDeviceWhitelistList) DeepCopy() *USBDeviceWhitelistList {
+	if in == nil {
+		return nil
+	}
+	out := new(USBDeviceWhitelistList)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *USBDeviceWhitelistList) DeepCopyObject() runtime.Object { return in.DeepCopy() }
+
+// --- USBBackupConfig DeepCopy ---
+
+func (in *BackupDestinationPVC) DeepCopyInto(out *BackupDestinationPVC) { *out = *in }
+
+func (in *BackupDestinationPVC) DeepCopy() *BackupDestinationPVC {
+	if in == nil {
+		return nil
+	}
+	out := new(BackupDestinationPVC)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *BackupDestinationS3) DeepCopyInto(out *BackupDestinationS3) {
+	*out = *in
+	if in.SecretRef != nil {
+		out.SecretRef = new(BackupDestinationSecret)
+		*out.SecretRef = *in.SecretRef
+	}
+}
+
+func (in *BackupDestinationS3) DeepCopy() *BackupDestinationS3 {
+	if in == nil {
+		return nil
+	}
+	out := new(BackupDestinationS3)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *BackupDestinationSecret) DeepCopyInto(out *BackupDestinationSecret) { *out = *in }
+
+func (in *BackupDestinationSecret) DeepCopy() *BackupDestinationSecret {
+	if in == nil {
+		return nil
+	}
+	out := new(BackupDestinationSecret)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *BackupDestinationConfigMap) DeepCopyInto(out *BackupDestinationConfigMap) { *out = *in }
+
+func (in *BackupDestinationConfigMap) DeepCopy() *BackupDestinationConfigMap {
+	if in == nil {
+		return nil
+	}
+	out := new(BackupDestinationConfigMap)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *BackupDestination) DeepCopyInto(out *BackupDestination) {
+	*out = *in
+	if in.PVC != nil {
+		out.PVC = new(BackupDestinationPVC)
+		*out.PVC = *in.PVC
+	}
+	if in.S3 != nil {
+		out.S3 = new(BackupDestinationS3)
+		in.S3.DeepCopyInto(out.S3)
+	}
+	if in.ConfigMap != nil {
+		out.ConfigMap = new(BackupDestinationConfigMap)
+		*out.ConfigMap = *in.ConfigMap
+	}
+}
+
+func (in *BackupDestination) DeepCopy() *BackupDestination {
+	if in == nil {
+		return nil
+	}
+	out := new(BackupDestination)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *AutoRestoreConfig) DeepCopyInto(out *AutoRestoreConfig) { *out = *in }
+
+func (in *AutoRestoreConfig) DeepCopy() *AutoRestoreConfig {
+	if in == nil {
+		return nil
+	}
+	out := new(AutoRestoreConfig)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *USBBackupConfigSpec) DeepCopyInto(out *USBBackupConfigSpec) {
+	*out = *in
+	in.Destination.DeepCopyInto(&out.Destination)
+	out.AutoRestore = in.AutoRestore
+}
+
+func (in *USBBackupConfigSpec) DeepCopy() *USBBackupConfigSpec {
+	if in == nil {
+		return nil
+	}
+	out := new(USBBackupConfigSpec)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *USBBackupConfigStatus) DeepCopyInto(out *USBBackupConfigStatus) {
+	*out = *in
+	if in.LastBackupTime != nil {
+		out.LastBackupTime = in.LastBackupTime.DeepCopy()
+	}
+}
+
+func (in *USBBackupConfigStatus) DeepCopy() *USBBackupConfigStatus {
+	if in == nil {
+		return nil
+	}
+	out := new(USBBackupConfigStatus)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *USBBackupConfig) DeepCopyInto(out *USBBackupConfig) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	in.Spec.DeepCopyInto(&out.Spec)
+	in.Status.DeepCopyInto(&out.Status)
+}
+
+func (in *USBBackupConfig) DeepCopy() *USBBackupConfig {
+	if in == nil {
+		return nil
+	}
+	out := new(USBBackupConfig)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *USBBackupConfig) DeepCopyObject() runtime.Object { return in.DeepCopy() }
+
+func (in *USBBackupConfigList) DeepCopyInto(out *USBBackupConfigList) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
+	if in.Items != nil {
+		out.Items = make([]USBBackupConfig, len(in.Items))
+		for i := range in.Items {
+			in.Items[i].DeepCopyInto(&out.Items[i])
+		}
+	}
+}
+
+func (in *USBBackupConfigList) DeepCopy() *USBBackupConfigList {
+	if in == nil {
+		return nil
+	}
+	out := new(USBBackupConfigList)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *USBBackupConfigList) DeepCopyObject() runtime.Object { return in.DeepCopy() }
+
+// --- USBBackup DeepCopy ---
+
+func (in *BackupItemCounts) DeepCopyInto(out *BackupItemCounts) { *out = *in }
+
+func (in *BackupItemCounts) DeepCopy() *BackupItemCounts {
+	if in == nil {
+		return nil
+	}
+	out := new(BackupItemCounts)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *USBBackupSpec) DeepCopyInto(out *USBBackupSpec) { *out = *in }
+
+func (in *USBBackupSpec) DeepCopy() *USBBackupSpec {
+	if in == nil {
+		return nil
+	}
+	out := new(USBBackupSpec)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *USBBackupStatus) DeepCopyInto(out *USBBackupStatus) {
+	*out = *in
+	if in.CompletedAt != nil {
+		out.CompletedAt = in.CompletedAt.DeepCopy()
+	}
+	if in.ItemCounts != nil {
+		out.ItemCounts = new(BackupItemCounts)
+		*out.ItemCounts = *in.ItemCounts
+	}
+}
+
+func (in *USBBackupStatus) DeepCopy() *USBBackupStatus {
+	if in == nil {
+		return nil
+	}
+	out := new(USBBackupStatus)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *USBBackup) DeepCopyInto(out *USBBackup) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	out.Spec = in.Spec
+	in.Status.DeepCopyInto(&out.Status)
+}
+
+func (in *USBBackup) DeepCopy() *USBBackup {
+	if in == nil {
+		return nil
+	}
+	out := new(USBBackup)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *USBBackup) DeepCopyObject() runtime.Object { return in.DeepCopy() }
+
+func (in *USBBackupList) DeepCopyInto(out *USBBackupList) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
+	if in.Items != nil {
+		out.Items = make([]USBBackup, len(in.Items))
+		for i := range in.Items {
+			in.Items[i].DeepCopyInto(&out.Items[i])
+		}
+	}
+}
+
+func (in *USBBackupList) DeepCopy() *USBBackupList {
+	if in == nil {
+		return nil
+	}
+	out := new(USBBackupList)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *USBBackupList) DeepCopyObject() runtime.Object { return in.DeepCopy() }
+
+// --- USBRestore DeepCopy ---
+
+func (in *RestoreBackupRef) DeepCopyInto(out *RestoreBackupRef) { *out = *in }
+
+func (in *RestoreBackupRef) DeepCopy() *RestoreBackupRef {
+	if in == nil {
+		return nil
+	}
+	out := new(RestoreBackupRef)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *PreRestoreHealthCheck) DeepCopyInto(out *PreRestoreHealthCheck) {
+	*out = *in
+	if in.CheckedAt != nil {
+		out.CheckedAt = in.CheckedAt.DeepCopy()
+	}
+}
+
+func (in *PreRestoreHealthCheck) DeepCopy() *PreRestoreHealthCheck {
+	if in == nil {
+		return nil
+	}
+	out := new(PreRestoreHealthCheck)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *ConnectionRevalidation) DeepCopyInto(out *ConnectionRevalidation) {
+	*out = *in
+	if in.TerminatedConnections != nil {
+		out.TerminatedConnections = make([]string, len(in.TerminatedConnections))
+		copy(out.TerminatedConnections, in.TerminatedConnections)
+	}
+}
+
+func (in *ConnectionRevalidation) DeepCopy() *ConnectionRevalidation {
+	if in == nil {
+		return nil
+	}
+	out := new(ConnectionRevalidation)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *RestoreItemCounts) DeepCopyInto(out *RestoreItemCounts) { *out = *in }
+
+func (in *RestoreItemCounts) DeepCopy() *RestoreItemCounts {
+	if in == nil {
+		return nil
+	}
+	out := new(RestoreItemCounts)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *USBRestoreSpec) DeepCopyInto(out *USBRestoreSpec) {
+	*out = *in
+	out.BackupRef = in.BackupRef
+}
+
+func (in *USBRestoreSpec) DeepCopy() *USBRestoreSpec {
+	if in == nil {
+		return nil
+	}
+	out := new(USBRestoreSpec)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *USBRestoreStatus) DeepCopyInto(out *USBRestoreStatus) {
+	*out = *in
+	if in.PreRestoreHealthCheck != nil {
+		out.PreRestoreHealthCheck = new(PreRestoreHealthCheck)
+		in.PreRestoreHealthCheck.DeepCopyInto(out.PreRestoreHealthCheck)
+	}
+	if in.RestoredItems != nil {
+		out.RestoredItems = new(RestoreItemCounts)
+		*out.RestoredItems = *in.RestoredItems
+	}
+	if in.ConnectionRevalidation != nil {
+		out.ConnectionRevalidation = new(ConnectionRevalidation)
+		in.ConnectionRevalidation.DeepCopyInto(out.ConnectionRevalidation)
+	}
+	if in.CompletedAt != nil {
+		out.CompletedAt = in.CompletedAt.DeepCopy()
+	}
+}
+
+func (in *USBRestoreStatus) DeepCopy() *USBRestoreStatus {
+	if in == nil {
+		return nil
+	}
+	out := new(USBRestoreStatus)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *USBRestore) DeepCopyInto(out *USBRestore) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	in.Spec.DeepCopyInto(&out.Spec)
+	in.Status.DeepCopyInto(&out.Status)
+}
+
+func (in *USBRestore) DeepCopy() *USBRestore {
+	if in == nil {
+		return nil
+	}
+	out := new(USBRestore)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *USBRestore) DeepCopyObject() runtime.Object { return in.DeepCopy() }
+
+func (in *USBRestoreList) DeepCopyInto(out *USBRestoreList) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
+	if in.Items != nil {
+		out.Items = make([]USBRestore, len(in.Items))
+		for i := range in.Items {
+			in.Items[i].DeepCopyInto(&out.Items[i])
+		}
+	}
+}
+
+func (in *USBRestoreList) DeepCopy() *USBRestoreList {
+	if in == nil {
+		return nil
+	}
+	out := new(USBRestoreList)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *USBRestoreList) DeepCopyObject() runtime.Object { return in.DeepCopy() }

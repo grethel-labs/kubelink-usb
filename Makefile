@@ -18,6 +18,7 @@ lint:
 build:
 	go build -o bin/controller ./cmd/controller
 	go build -o bin/agent ./cmd/agent
+	go build -o bin/kubectl-usb ./cmd/kubectl-usb
 
 docker-build:
 	docker build -t $(IMG_CONTROLLER) -f Dockerfile .

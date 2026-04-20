@@ -1,39 +1,92 @@
-- **Issue #1: Implement USBConnection Reconciler (Tunnel Management)**  
-  Labels: `enhancement`, `help wanted`  
-  Acceptance: Connection CRD wird erstellt, Agent auf Server-Node führt usbip bind aus, Agent auf Client-Node führt usbip attach aus.
+# KubeLink-USB — Issue Tracker
 
-- **Issue #2: Security Layer - Approval Workflow**  
-  Labels: `enhancement`, `help wanted`  
-  Acceptance: USBDeviceApproval CRD wird bei neuem Gerät automatisch erstellt, Controller wartet auf Approval bevor Connection erlaubt wird.
+> Priorisierte Issues für die weitere Entwicklung. Stand: April 2026.
 
-- **Issue #3: Network Isolation & Encryption**  
-  Labels: `enhancement`, `help wanted`  
-  Acceptance: Optionales mTLS für USB/IP Tunnel, NetworkPolicy automatische Erstellung.
+## Kritischer Pfad (v1.0 MVP)
 
-- **Issue #4: Resilience - Reconnect Logic**  
-  Labels: `enhancement`, `bug`  
-  Acceptance: Bei Netzwerk-Ausfall: Retry mit Backoff, bei permanentem Verlust: Status auf Failed, Event an User.
+- **Issue #2: Discovery-zu-CR-Bridge** ⬆️ HÖCHSTE PRIORITÄT
+  Labels: `enhancement`, `phase-1`, `blocking`
+  Status: 🔶 Teilweise (Discovery loggt Events, aber erstellt noch keine K8s-CRs)
+  Beschreibung: Agent erstellt automatisch USBDevice-CRs bei Discovery-Events.
+  Akzeptanz: `add`→CR erstellen, `remove`→Phase=Disconnected, Reconnect-Erkennung via Serial.
+  Verbleibend: K8s-Client-Initialisierung im Agent, Event-Callback mit CR-Erstellung.
 
-- **Issue #5: Webhook Implementation**  
-  Labels: `enhancement`, `help wanted`  
-  Acceptance: Validation Webhook für Policies (regex für VID/PID), Mutation Webhook für Default-Werte.
+## Verbesserungen (v1.1+)
 
-- **Issue #6: Device Hotplug Handling**  
-  Labels: `enhancement`, `bug`  
-  Acceptance: Gerät rausziehen → Status Disconnected, gleiches Gerät reinstecken (erkennen via Serial) → Reconnect.
+- **Issue #9: Network Isolation & Encryption**
+  Labels: `enhancement`, `security`, `phase-5`
+  Status: ❌ Nicht begonnen
+  Beschreibung: Optionales mTLS für USB/IP-Tunnel, NetworkPolicy automatische Erstellung.
+  Akzeptanz: `requireEncryption: true` → mTLS, `networkIsolation: true` → NetworkPolicy.
 
-- **Issue #7: CLI Tool (kubectl-usb)**  
-  Labels: `enhancement`, `help wanted`  
-  Acceptance: `kubectl usb approve <device>`, `kubectl usb list`, `kubectl usb connect <device> <pod>`.
+- **Issue #10: Resilience - Reconnect Logic**
+  Labels: `enhancement`, `phase-4`
+  Status: ❌ Nicht begonnen
+  Beschreibung: Retry mit Backoff, Disconnect-Timeout, Hotplug-Handling.
+  Akzeptanz: Netzwerkausfall → automatische Retries, permanenter Verlust → Failed + Event.
 
-- **Issue #8: Metrics & Observability**  
-  Labels: `enhancement`, `help wanted`  
-  Acceptance: Prometheus Metrics für aktive Tunnel, Fehlerraten, Device-Discovery-Rate.
+- **Issue #11: Device Hotplug Handling**
+  Labels: `enhancement`, `phase-4`
+  Status: ❌ Nicht begonnen
+  Beschreibung: Gerät rausziehen → Disconnected, reinstecken (via Serial) → Reconnect.
+  Akzeptanz: Automatischer Reconnect via SerialNumber-Match.
 
-- **Issue #9: Documentation & Examples**  
-  Labels: `enhancement`, `help wanted`  
-  Acceptance: Komplettes Setup-Guide für k0s/MicroK8s, Beispiel: Zigbee2MQTT über 2 Nodes.
+- **Issue #12: Webhook Implementation**
+  Labels: `enhancement`, `phase-7`
+  Status: ❌ Nicht begonnen
+  Beschreibung: Validation Webhook für Policies (VID/PID-Format), Mutation Webhook für Defaults.
+  Akzeptanz: Ungültige VendorID → Reject, fehlende Felder → Defaults.
 
-- **Issue #10: Multi-Architecture Support**  
-  Labels: `enhancement`, `help wanted`  
-  Acceptance: ARM64 Support (Raspberry Pi), amd64, Container Images für beide.
+- **Issue #13: CLI Tool (kubectl-usb)**
+  Labels: `enhancement`, `phase-6`
+  Status: ❌ Nicht begonnen
+  Beschreibung: kubectl-Plugin: `list`, `approve`, `deny`, `connect`, `disconnect`.
+  Akzeptanz: Jeder Befehl mit Standard-Kubeconfig, Tabellenausgabe.
+
+- **Issue #14: Metrics & Observability**
+  Labels: `enhancement`, `phase-8`
+  Status: ❌ Nicht begonnen
+  Beschreibung: Prometheus Metrics + Kubernetes Events für Statusübergänge.
+  Akzeptanz: Gauges für Devices/Connections, Counter für Discovery, Histogram für Approval.
+
+- **Issue #15: Documentation & Examples**
+  Labels: `enhancement`, `documentation`
+  Status: 🔶 Partial
+  Beschreibung: Setup-Guide für k0s/MicroK8s, Beispiel: Zigbee2MQTT über 2 Nodes.
+  Akzeptanz: Komplettes Tutorial mit funktionierendem Beispiel.
+
+- **Issue #16: Multi-Architecture Support**
+  Labels: `enhancement`, `phase-9`
+  Status: ❌ Nicht begonnen
+  Beschreibung: ARM64 (Raspberry Pi) + amd64 Container Images.
+  Akzeptanz: Buildx Multi-Platform, GHCR-Publishing für beide Architekturen.
+
+- **Issue #18: S3 Backup Storage (Real SDK)**
+  Labels: `enhancement`
+  Status: ⚠️ Mock (In-Memory, kein echtes S3 SDK)
+  Beschreibung: `S3Storage` Write/Read/List/Delete mit echtem AWS SDK implementieren.
+  Akzeptanz: Backups in S3-Bucket persistiert, Roundtrip-Test.
+
+- **Issue #19: Helm Chart**
+  Labels: `enhancement`, `phase-9`
+  Status: ❌ Nicht begonnen
+  Beschreibung: Helm Chart für einfaches Cluster-Deployment.
+  Akzeptanz: `helm install kubelink-usb` deployed Controller + Agent DaemonSet + CRDs.
+
+## Bereits erledigt ✅
+
+- ~~Issue #1: Device Fingerprinting~~ → DNS-label-safe, deterministic CR names ✅
+- ~~Issue #3: Policy-Engine implementieren~~ → Vendor/Product/Node/HID/Class Matching ✅
+- ~~Issue #4: Approval Workflow~~ → Approve/Deny/Expire mit Device-Phase-Propagation ✅
+- ~~Issue #5: USB Connection Controller~~ → Tunnel-Lifecycle mit Finalizer ✅
+- ~~Issue #6: Server-seitiger Export~~ → CommandRunner + usbipd bind/unbind ✅
+- ~~Issue #7: Client-seitiger Import~~ → CommandRunner + usbip attach/detach ✅
+- ~~Issue #8: Vollständiges USB/IP-Protokoll~~ → DevList/Import Frames + Server/Client ✅
+- ~~Issue #17: PVC Backup Storage~~ → File-basiert mit 0o600 Permissions ✅
+- ~~Issue: CRD API Types~~ → 8 Ressourcen mit DeepCopy ✅
+- ~~Issue: USBDevice Reconciler~~ → Finalizer + Status-Init ✅
+- ~~Issue: Discovery Watcher~~ → fsnotify + Event-Normalisierung ✅
+- ~~Issue: Backup/Restore System~~ → Snapshot, Storage, Controller, HealthMonitor ✅
+- ~~Issue: TLS Baseline~~ → TLS 1.3 Config ✅
+- ~~Issue: Whitelist~~ → In-Memory Set ✅
+- ~~Issue: CI Pipeline~~ → Lint, Test, Coverage, Build, Images, Docs, Publish ✅

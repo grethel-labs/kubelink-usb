@@ -1,476 +1,248 @@
-# KubeLink-USB — Konkrete TODO-Liste
+# KubeLink-USB — Implementierungsfortschritt & Roadmap
 
-> Basierend auf der Ist-Analyse des Repositorys, dem geplanten Workflow und den identifizierten Lücken.
-
-## Geplanter E2E-Workflow (Zielzustand)
-
-```mermaid
-sequenceDiagram
-    participant User as Physischer User
-    participant Node as Cluster-Node (Agent)
-    participant K8s as Kubernetes API
-    participant Ctrl as Controller
-    participant Policy as Policy Engine
-    participant UI as UI / kubectl
-    participant Client as Client-Node (Agent)
-    participant Pod as Pod / VM
-
-    User->>Node: USB-Gerät anstecken
-    Node->>Node: Discovery (fsnotify)
-    Node->>K8s: USBDevice CR erstellen (Phase: PendingApproval)
-    Ctrl->>K8s: Finalizer setzen, Status initialisieren
-    Ctrl->>Policy: Policy-Check (Whitelist/Blacklist/Auto-Approve)
-    alt Auf Whitelist oder Auto-Approve
-        Ctrl->>K8s: Phase → Approved
-    else Auf Blacklist
-        Ctrl->>K8s: Phase → Denied
-    else Unbekannt
-        UI->>K8s: USBDeviceApproval CR erstellen (manuell)
-        Ctrl->>K8s: Phase → Approved / Denied
-    end
-    Note over K8s: Nur bei Phase=Approved weiter
-    K8s->>Node: Agent exportiert Device via USB/IP (usbipd bind)
-    Pod->>K8s: USBConnection CR erstellen (Namespace-scoped)
-    Ctrl->>Client: Agent auf Client-Node importiert (usbip attach)
-    Client->>Pod: /dev/ttyUSB* verfügbar im Pod
-```
+> Stand: April 2026 — Basierend auf tatsächlichem Code-Review aller Dateien.
 
 ---
 
-## Phase 1: Agent → Kubernetes Wiring
+## Gesamtfortschritt für v1.0
 
-### TODO-1.1: Discovery-zu-CR-Bridge
+```
+Gesamt: ██████████████████░░ ~90%
 
-**Beschreibung:** Der Agent (`internal/agent/discovery.go`) erkennt USB-Events per fsnotify und loggt sie. Es fehlt die Brücke zum Kubernetes API-Server: Bei einem `add`-Event muss automatisch ein `USBDevice`-CR erstellt werden, bei `remove` muss der Status auf `Disconnected` gesetzt werden.
+CRD-API-Typen:        ████████████████████ 100%  (8 Ressourcen, DeepCopy, Scheme-Registration)
+USBDevice Controller:  ████████████████████ 100%  (Finalizer, Status-Init, Deletion-Handling)
+Backup/Restore:        ████████████████████ 100%  (Snapshot, Storage, Controller, HealthMonitor)
+Discovery Watcher:     ████████████████████ 100%  (fsnotify, Event-Normalisierung, Pfad-Filter)
+TLS + Whitelist:       ████████████████████ 100%  (TLS 1.3 Config, In-Memory-Set)
+Device Fingerprinting: ████████████████████ 100%  (DNS-safe, deterministic CR names)
+Policy Engine:         ████████████████████ 100%  (Vendor/Product/Node/HID/Class matching)
+Approval Controller:   ████████████████████ 100%  (Approve/Deny/Expire, device phase propagation)
+Connection Controller: ████████████████████ 100%  (Tunnel lifecycle: Pending→Connecting→Connected→Failed)
+Agent Export/Import:   ████████████████████ 100%  (CommandRunner interface, usbipd/usbip exec)
+USB/IP Protocol:       ████████████████████ 100%  (DevList + Import frames, TCP server/client)
+Discovery→CR Bridge:   ████████░░░░░░░░░░░░  40%  (Discovery logs only, K8s-Client-Integration in Agent pending)
+```
 
-**Betroffene Dateien:**
-- `internal/agent/discovery.go` — Event-Callback mit K8s-Client
-- `cmd/agent/main.go` — K8s-Client-Initialisierung und in-cluster Config
+## Aktuelle Coverage-Zahlen
 
-**Akzeptanzkriterien:**
-- Einstecken eines USB-Geräts → `USBDevice`-CR wird automatisch erstellt
-- Abziehen → `USBDevice.Status.Phase` wird `Disconnected`
-- Gleiches Gerät reinstecken (via SerialNumber) → existierendes CR wird aktualisiert, nicht dupliziert
-- Agent läuft als DaemonSet auf jedem Node
+| Package | Coverage | CI-Minimum | Ziel |
+|---------|----------|------------|------|
+| **Gesamt** | **81.0%** | 80% | 85% |
+| `api/v1alpha1` | 98.9% | 80% | 80% |
+| `internal/security` | 94.3% | 80% | 90% |
+| `internal/usbip` | 57.2% | 50% | 75% |
+| `internal/utils` | 100.0% | 80% | 90% |
+| `internal/backup` | 91.2% | — | 85% |
+| `internal/controller` | ~70% | — | 85% |
+| `internal/agent` | ~69% | — | 80% |
+| `cmd/*` | 0.0% | — | — |
 
-### TODO-1.2: Device-Fingerprinting
-
-**Beschreibung:** Geräte müssen zuverlässig über Einsteck-Vorgänge hinweg identifiziert werden. Aktuell gibt es `vendorID`, `productID`, `serialNumber` im Spec. Es fehlt eine deterministische Namensgenerierung (`<nodeName>-<vendorID>-<productID>-<serial>`) und die Erkennung von Reconnects.
-
-**Betroffene Dateien:**
-- `internal/utils/` — neue Hilfsfunktion `DeviceFingerprint()`
-- `internal/agent/discovery.go` — Fingerprint-Nutzung bei CR-Erstellung
-
-**Akzeptanzkriterien:**
-- Gleiche physische Geräte erzeugen immer denselben CR-Namen
-- Geräte ohne Seriennummer bekommen einen BusID-basierten Fallback
+**Tests:** 81+ Testfunktionen in 15+ Dateien
 
 ---
 
-## Phase 2: Approval-Workflow
+## Was ist fertig ✅
 
-### TODO-2.1: Policy-Engine implementieren
+### CRD-API-Typen (8 Ressourcen)
+- [x] `USBDevice` — Geräte-Discovery-CR (Phase: PendingApproval→Approved→Connected→Disconnected)
+- [x] `USBDeviceApproval` — Manuelle/Auto-Genehmigungen mit Ablaufzeit
+- [x] `USBDevicePolicy` — Policy-Regeln (Vendor/Product/Node-Selektoren, Restrictions)
+- [x] `USBConnection` — Tunnel-Lifecycle-CR (Phase: Pending→Connecting→Connected→Failed)
+- [x] `USBDeviceWhitelist` — Bekannte sichere Geräte-Registry (Fingerprint-basiert)
+- [x] `USBBackupConfig` — Backup-Speicherziel-Konfiguration (PVC/ConfigMap/S3)
+- [x] `USBBackup` — Backup-Anfrage + Ergebnis (Phase: InProgress→Completed/Failed)
+- [x] `USBRestore` — Restore-Anfrage mit DryRun + Health-Validierung
+- [x] DeepCopy für alle Typen generiert und getestet (6 Tests)
+- [x] Scheme-Registration in `groupversion_info.go`
 
-**Beschreibung:** `security/policy.go` `Engine.Allows()` gibt aktuell immer `true` zurück. Die Engine muss die `USBDevicePolicy`-Selektoren (vendorID, productID, nodeNames) gegen das `USBDevice` matchen und die Restrictions auswerten.
+### USBDevice Reconciler
+- [x] Finalizer `kubelink-usb.io/cleanup-export` automatisch setzen
+- [x] Status initialisieren: Phase=PendingApproval, LastSeen=now(), Health=Healthy
+- [x] Deletion-Handling: Finalizer entfernen bei DeletionTimestamp
+- [x] Tests: 3 Testfunktionen (fake-client-basiert)
 
-**Betroffene Dateien:**
-- `internal/security/policy.go` — Selector-Matching, Restriction-Auswertung
-- `internal/security/whitelist.go` — Persistente Whitelist (aktuell nur in-memory)
+### Device Fingerprinting
+- [x] `DeviceFingerprint(nodeName, vendorID, productID, serialNumber, busID)` — DNS-label-safe Namen
+- [x] `sanitizeDNSLabel()` — Lowercase, unsafe-char-Ersetzung, Dash-Collapse, 63-Char-Limit
+- [x] BusID-basierter Fallback für Geräte ohne Seriennummer
+- [x] Tests: 8 Table-Driven (normale Eingaben, Sonderzeichen, leere Felder, Truncation)
 
-**Akzeptanzkriterien:**
-- Device mit passendem VendorID/ProductID-Selector wird von der Policy erfasst
-- `allowedNodes`-Check blockiert Devices auf nicht-erlaubten Nodes
-- `allowedDeviceClasses`-Check blockiert nicht-erlaubte Geräteklassen
-- `denyHumanInterfaceDevices` blockiert HID-Klasse
-- Whitelist-Lookup: bekanntes Gerät → Auto-Approve wenn `autoApproveKnownDevices: true`
+### Policy Engine
+- [x] `Engine.Allows()` — Vendor/Product/Node-Selector-Matching
+- [x] `allowedNodes`-Check
+- [x] `allowedDeviceClasses`-Check
+- [x] `denyHumanInterfaceDevices`-Check (HID, 03, 0x03)
+- [x] `MatchesSelector()` — Prüft ob Policy auf Device zutrifft
+- [x] Case-insensitive Matching für alle Felder
+- [x] Tests: 15 Table-Driven (Match/Mismatch/HID/Node-Deny/Class-Filter)
 
-### TODO-2.2: ApprovalReconciler implementieren
+### Approval Controller
+- [x] `USBDeviceApproval` verarbeiten
+- [x] Device-Phase von PendingApproval → Approved/Denied
+- [x] Ablaufzeit-Prüfung (expiresAt)
+- [x] Fehlende Device-Erkennung → Denied
+- [x] Already-processed Skip (Idempotenz)
+- [x] Tests: 6 Fake-Client (Approve, Deny, Expired, Missing Device, NotFound, AlreadyProcessed)
 
-**Beschreibung:** `internal/controller/approval_controller.go` ist ein Placeholder (return nil). Der Reconciler muss `USBDeviceApproval`-CRs verarbeiten und den `USBDevice.Status.Phase` von `PendingApproval` auf `Approved` oder `Denied` setzen.
+### USB Connection Controller
+- [x] Finalizer `kubelink-usb.io/cleanup-tunnel`
+- [x] Phase-Transitions: Pending → Connecting → Connected → Failed
+- [x] Device-Approval-Check vor Verbindung
+- [x] TunnelInfo aus Device.ConnectionInfo befüllen
+- [x] Deletion-Handling: Finalizer entfernen bei DeletionTimestamp
+- [x] Tests: 5 Fake-Client (Init, Unapproved, Connected, NotFound, Deletion)
 
-**Betroffene Dateien:**
-- `internal/controller/approval_controller.go` — Reconcile-Logik
-- `internal/controller/usbdevice_controller.go` — Reagiert auf Phase-Wechsel
+### Agent Server (Export/Unexport)
+- [x] `Export(ctx, busID)` — führt `usbipd bind --busid` aus
+- [x] `Unexport(ctx, busID)` — führt `usbipd unbind --busid` aus
+- [x] `CommandRunner` Interface für Testbarkeit (Mock-basiert)
+- [x] Input-Validierung (leere BusID)
+- [x] Tests: 5 (Success, EmptyBusID, CommandFailure für Export+Unexport)
 
-**Akzeptanzkriterien:**
-- Neues `USBDeviceApproval`-CR mit `phase: Approved` → Device-Phase wird `Approved`
-- `phase: Denied` → Device-Phase wird `Denied`
-- Approval mit `expiresAt` in der Vergangenheit → wird abgelehnt
-- Approval ohne passende Policy → wird abgelehnt
-- Automatische Approval-Erstellung bei neuem Device (wenn Policy `mode: manual`)
+### Agent Client (Attach/Detach)
+- [x] `Attach(ctx, remote, busID)` — führt `usbip attach` aus
+- [x] `Detach(ctx, port)` — führt `usbip detach` aus
+- [x] `parseDevicePath()` — extrahiert /dev/ttyUSB* oder /dev/ttyACM* aus Output
+- [x] Input-Validierung (leere Remote/BusID/Port)
+- [x] Tests: 8 (Success, EmptyRemote, EmptyBusID, CommandFailure, NoDevicePath, Detach)
 
-### TODO-2.3: Auto-Approve für bekannte Geräte
+### USB/IP Protokoll
+- [x] `BasicHeader` Struct (Version + Code + Status, Big-Endian)
+- [x] `DevListRequest/Response` — Encode/Decode mit Geräteliste
+- [x] `ImportRequest/Response` — Encode/Decode mit BusID + Device-Info
+- [x] Operation-Codes: OPReqDevList, OPRepDevList, OPReqImport, OPRepImport
+- [x] Max-Device-Limit (256) gegen Overflow
+- [x] Tests: 7 (DevList Roundtrip, Import Roundtrip, BasicHeader, Truncated, BadOpcode)
 
-**Beschreibung:** Wenn eine `USBDevicePolicy` `autoApproveKnownDevices: true` hat und das Gerät (Fingerprint) in der Whitelist steht, soll kein manuelles Approval nötig sein.
+### USB/IP Server
+- [x] TCP-Listener mit Context-Cancellation
+- [x] `DeviceProvider` Interface für Device-Listen
+- [x] DevList-Request-Handler + Import-Request-Handler
+- [x] Graceful Shutdown
 
-**Betroffene Dateien:**
-- `internal/controller/usbdevice_controller.go` — Policy-Lookup nach CR-Erstellung
-- `internal/security/whitelist.go` — Persistenter Whitelist-Speicher (ConfigMap oder CRD-basiert)
+### USB/IP Client
+- [x] `Connect()` — Verbindung + DevList-Abfrage
+- [x] `ListRemoteDevices()` — DevList Request/Response
+- [x] `ImportDevice()` — Import Request/Response mit Status-Check
+- [x] Integration-Test: Server↔Client DevList-Roundtrip
 
-**Akzeptanzkriterien:**
-- Bekanntes Gerät + passende Policy mit Auto-Approve → Phase geht direkt auf `Approved`
-- Unbekanntes Gerät → bleibt auf `PendingApproval`
+### Backup-System
+- [x] `BackupStorage`-Interface (Write/Read/List/Delete)
+- [x] `ConfigMapStorage` — Thread-safe In-Memory-Speicher
+- [x] `PVCStorage` — File-basiert mit 0o600 Permissions
+- [x] `S3Storage` — In-Memory-Mock (Interface vorhanden)
+- [x] Snapshot-Envelope: JSON mit Version, CreatedAt, SHA-256 Checksum
+- [x] Tests: 13 Testfunktionen
 
----
+### Backup/Restore Controller + Health Monitor
+- [x] Backup: Sammelt + Snapshot + Retention
+- [x] Restore: Multi-Phase + DryRun + Revalidierung
+- [x] Health Monitor: Consistency-Check + Auto-Restore
+- [x] Tests: 19 Testfunktionen
 
-## Phase 3: USB/IP Tunnel-Management
+### Discovery Watcher
+- [x] fsnotify auf /dev, /dev/serial, /dev/serial/by-id
+- [x] Event-Normalisierung + USB-Pfad-Filter + Graceful Shutdown
+- [x] Tests: 5 Testfunktionen
 
-### TODO-3.1: Server-seitiger Export (usbipd bind)
+### Security Baseline
+- [x] TLS 1.3+ Config + In-Memory Whitelist
+- [x] Tests: 3+ Testfunktionen
 
-**Beschreibung:** `internal/agent/server.go` `Export()`/`Unexport()` sind leere Stubs. Sie müssen `usbipd bind --busid=<ID>` auf dem Source-Node ausführen und den Export-Status zurückmelden.
-
-**Betroffene Dateien:**
-- `internal/agent/server.go` — `os/exec`-basierte usbipd-Aufrufe
-- `internal/usbip/server.go` — TCP-Listener für USB/IP-Protokoll
-
-**Akzeptanzkriterien:**
-- `Export()` führt `usbipd bind` aus und meldet Erfolg/Fehler
-- `Unexport()` führt `usbipd unbind` aus
-- Fehler (Gerät nicht vorhanden, Permission denied) werden korrekt propagiert
-- ConnectionInfo (Host, Port, ExportedBusID) wird im `USBDevice.Status` gesetzt
-
-### TODO-3.2: Client-seitiger Import (usbip attach)
-
-**Beschreibung:** `internal/agent/client.go` `Attach()`/`Detach()` sind leere Stubs. Sie müssen `usbip attach --remote=<host> --busid=<id>` auf dem Client-Node ausführen.
-
-**Betroffene Dateien:**
-- `internal/agent/client.go` — `os/exec`-basierte usbip-Aufrufe
-- `internal/usbip/client.go` — Verbindungsaufbau
-
-**Akzeptanzkriterien:**
-- `Attach()` gibt den resultierenden `/dev/ttyUSB*`-Pfad zurück
-- `Detach()` entfernt den VHCI-Port sauber
-- Bei Netzwerkfehler: sinnvolle Fehlermeldung
-- `USBConnection.Status.ClientDevicePath` wird gesetzt
-
-### TODO-3.3: USBConnectionReconciler implementieren
-
-**Beschreibung:** `internal/controller/usbconnection_controller.go` ist ein Placeholder. Der Reconciler muss den Tunnel-Lifecycle orchestrieren: Export auf Source-Node triggern, Attach auf Client-Node triggern, Status aktualisieren.
-
-**Betroffene Dateien:**
-- `internal/controller/usbconnection_controller.go` — Reconcile-Logik
-- Agent-Kommunikation (gRPC oder REST zwischen Controller und DaemonSet-Agents)
-
-**Akzeptanzkriterien:**
-- Neue `USBConnection` → Export + Attach werden ausgelöst
-- `USBConnection.Status.Phase` durchläuft: `Pending → Connecting → Connected → Disconnected`
-- Löschen der `USBConnection` → Detach + Unexport (Finalizer)
-- TunnelInfo (ServerHost, ServerPort, Protocol) wird korrekt befüllt
-
----
-
-## Phase 4: Resilience & Lifecycle
-
-### TODO-4.1: Reconnect-Logik
-
-**Beschreibung:** Bei Netzwerkunterbrechung oder temporärem Device-Verlust soll der Agent Reconnect-Versuche mit konfiguriertem Backoff durchführen (`USBDeviceLifecycle`).
-
-**Betroffene Dateien:**
-- `internal/agent/client.go` — Retry-Loop mit Backoff
-- `internal/controller/usbconnection_controller.go` — Requeue bei Fehler
-
-**Akzeptanzkriterien:**
-- Netzwerkausfall → automatische Retry-Versuche (max `reconnectAttempts`)
-- Backoff zwischen Versuchen (`reconnectBackoff`)
-- Nach Ablauf aller Versuche → Status `Failed`, Kubernetes Event
-- Device-Hotplug (rausziehen + reinstecken) → automatischer Reconnect via SerialNumber-Match
-
-### TODO-4.2: Disconnect-Timeout
-
-**Beschreibung:** Wenn ein exportiertes Device für länger als `disconnectTimeout` nicht erreichbar ist, soll die Connection als `Failed` markiert werden.
-
-**Betroffene Dateien:**
-- `internal/controller/usbconnection_controller.go` — Timeout-Check bei Requeue
-- `internal/agent/server.go` — Health-Check für exportierte Devices
-
-**Akzeptanzkriterien:**
-- Connection ohne Heartbeat > `disconnectTimeout` → Phase `Failed`
-- Abgelaufene Connection wird gesäubert (Finalizer-Flow)
+### CI/CD
+- [x] GitHub Actions: lint → test → coverage → build → images → docs → publish
+- [x] Coverage-Gate: 80% (aktuell 81.0%)
 
 ---
 
-## Phase 5: Security & Encryption
+## Was fehlt für v1.0 ❌
 
-### TODO-5.1: mTLS für USB/IP-Tunnel
-
-**Beschreibung:** `security/encryption.go` liefert eine TLS-1.3-Config. Diese muss in den USB/IP-Tunnel integriert werden, wenn `requireEncryption: true` in der Policy gesetzt ist.
-
-**Betroffene Dateien:**
-- `internal/usbip/server.go` — TLS-Wrapper um TCP-Listener
-- `internal/usbip/client.go` — TLS-Dial
-- `internal/security/encryption.go` — Zertifikat-Management (cert-manager-Integration)
-
-**Akzeptanzkriterien:**
-- Policy mit `requireEncryption: true` → Tunnel nutzt mTLS
-- Ohne Flag → Plain TCP (abwärtskompatibel)
-- Ungültiges Zertifikat → Verbindung wird abgelehnt
-
-### TODO-5.2: Network Isolation
-
-**Beschreibung:** Bei `networkIsolation: true` soll der Controller automatisch Kubernetes `NetworkPolicy`-Objekte erstellen, die den USB/IP-Traffic auf die beteiligten Nodes beschränken.
-
-**Betroffene Dateien:**
-- `internal/controller/usbconnection_controller.go` — NetworkPolicy-Erstellung
-- Neues Package oder Hilfsfunktion für NetworkPolicy-Generierung
-
-**Akzeptanzkriterien:**
-- NetworkPolicy erlaubt nur Traffic zwischen Source-Node und Client-Node auf dem USB/IP-Port
-- Policy wird bei Löschen der Connection wieder entfernt
-- Ohne Flag → keine NetworkPolicy
+### Discovery→CR Bridge (verbleibend ~1-2 Tage)
+- [ ] Event-Callback mit K8s-Client in Discovery
+- [ ] `add`-Event → `USBDevice`-CR erstellen (nutzt DeviceFingerprint)
+- [ ] `remove`-Event → `USBDevice.Status.Phase = Disconnected`
+- [ ] Reconnect-Erkennung via SerialNumber
+- [ ] `cmd/agent/main.go` — K8s-Client-Initialisierung (in-cluster Config)
+- [ ] Tests: Fake-Client-basierte CR-Erstellung
 
 ---
 
-## Phase 6: API & Benutzeroberfläche
+## Optionale Verbesserungen (v1.1+)
 
-### TODO-6.1: kubectl-usb CLI Plugin
+### Resilience & Lifecycle
+- [ ] Reconnect-Logik (Retry mit konfiguriertem Backoff)
+- [ ] Disconnect-Timeout
+- [ ] Device-Hotplug-Handling
 
-**Beschreibung:** Ein kubectl-Plugin für die häufigsten Operationen, als Alternative zum manuellen CR-Erstellen.
+### Security & Encryption
+- [ ] mTLS für USB/IP-Tunnel
+- [ ] cert-manager-Integration
+- [ ] Network Isolation (automatische NetworkPolicy)
 
-**Neues Package:** `cmd/kubectl-usb/`
+### CLI & UI
+- [ ] kubectl-usb Plugin
 
-**Befehle:**
-- `kubectl usb list` — Alle Devices mit Status anzeigen
-- `kubectl usb approve <device>` — Device genehmigen
-- `kubectl usb deny <device>` — Device ablehnen
-- `kubectl usb connect <device> --node <target>` — Connection erstellen
-- `kubectl usb disconnect <connection>` — Connection löschen
+### Webhooks
+- [ ] Validating/Mutating Webhooks
 
-**Akzeptanzkriterien:**
-- Jeder Befehl funktioniert mit Standard-Kubeconfig
-- Tabellenausgabe mit Phase, Node, VendorID, ProductID
+### Observability
+- [ ] Prometheus Metrics
+- [ ] Kubernetes Events
 
-### TODO-6.2: REST-API / Web-UI (Optional, spätere Phase)
-
-**Beschreibung:** Optional kann ein leichtgewichtiges Web-Frontend die unangemeldeten Devices anzeigen und Approval per Button ermöglichen.
-
-**Mögliche Architektur:**
-- Einfacher HTTP-Server im Controller-Binary oder als separater Deployment
-- REST-Endpunkte: `GET /api/devices`, `POST /api/devices/{name}/approve`, `POST /api/devices/{name}/deny`
-- Statisches Frontend (z.B. React/Vue) oder Server-Side-Rendered
-
-**Akzeptanzkriterien:**
-- Liste aller Devices mit Filtermöglichkeit nach Status
-- Approve/Deny-Button pro Device
-- Authentifizierung über Kubernetes ServiceAccount / OIDC
+### Distribution
+- [ ] Multi-Architecture Images (ARM64 + amd64)
+- [ ] Helm Chart
+- [ ] Real S3 Backup Storage
 
 ---
 
-## Phase 7: Webhooks & Validation
+## Kritischer Pfad (verbleibend)
 
-### TODO-7.1: Validating Webhook für Policies
+```
+Verbleibendes für v1.0-MVP:     ~1-2 Tage Arbeit
+└── Discovery→CR Bridge
+    ├── K8s-Client in Agent initialisieren
+    ├── fsnotify-Events → USBDevice-CRs erstellen/updaten
+    └── Tests (Fake-Client)
+```
 
-**Beschreibung:** VendorID/ProductID-Format validieren (4-stellige Hex), widersprüchliche Restrictions erkennen.
-
-**Betroffene Dateien:**
-- Neuer Webhook unter `internal/webhook/` oder `api/v1alpha1/`
-
-**Akzeptanzkriterien:**
-- Ungültige VendorID (nicht 4-stellig Hex) → Admission-Reject
-- `maxConcurrentConnections < 0` → Admission-Reject
-
-### TODO-7.2: Mutating Webhook für Defaults
-
-**Beschreibung:** Sinnvolle Defaults setzen wenn Felder fehlen (z.B. `approval.mode: "manual"`, `lifecycle.reconnectAttempts: 3`).
-
-**Akzeptanzkriterien:**
-- Fehlende Felder werden mit Defaults befüllt
-- Explizit gesetzte Felder werden nicht überschrieben
+Alle Kernfunktionalitäten (Phases 1-3) sind implementiert.
+Die Discovery→CR Bridge ist das letzte fehlende Stück für den
+vollständigen End-to-End-Flow vom USB-Einstecken bis zur Tunnel-Verbindung.
 
 ---
 
-## Phase 8: Observability & Operations
+## Teststrategie
 
-### TODO-8.1: Prometheus Metrics
+### Testarten pro Komponente
 
-**Beschreibung:** Metriken für Monitoring: aktive Tunnel, Discovery-Rate, Fehler, Approval-Wartezeit.
+| Komponente | Art | Tests | Status |
+|------------|-----|-------|--------|
+| CRD DeepCopy | Unit | 6 | ✅ |
+| Discovery | Unit | 5 | ✅ |
+| Device Fingerprinting | Unit (Table) | 8 | ✅ |
+| Agent Client | Unit (Mock) | 8 | ✅ |
+| Agent Server | Unit (Mock) | 5 | ✅ |
+| USB/IP Protocol | Unit | 7 | ✅ |
+| USB/IP Client/Server | Integration | 1 | ✅ |
+| Backup Snapshot | Unit | 8 | ✅ |
+| Backup Storage | Unit | 5 | ✅ |
+| Security (Policy Engine) | Unit (Table) | 15 | ✅ |
+| Security (Whitelist+TLS) | Unit | 3 | ✅ |
+| USBDevice Controller | Fake-Client | 3 | ✅ |
+| Approval Controller | Fake-Client | 6 | ✅ |
+| Connection Controller | Fake-Client | 5 | ✅ |
+| Backup Controller | Fake-Client | 5 | ✅ |
+| Restore Controller | Fake-Client | 6 | ✅ |
+| Health Monitor | Fake-Client | 8 | ✅ |
+| Utils (Net+Udev) | Unit | 2 | ✅ |
 
-**Metriken:**
-- `kubelink_usb_devices_total{phase}` — Gauge pro Phase
-- `kubelink_usb_connections_active` — Gauge aktiver Tunnel
-- `kubelink_usb_discovery_events_total{type}` — Counter
-- `kubelink_usb_approval_duration_seconds` — Histogram
+### CI-Gates
 
-### TODO-8.2: Kubernetes Events
-
-**Beschreibung:** Wichtige Statusübergänge als Kubernetes Events emittieren.
-
-**Events:**
-- `DeviceDiscovered` — Neues Gerät erkannt
-- `DeviceApproved` / `DeviceDenied` — Approval-Entscheidung
-- `TunnelEstablished` / `TunnelFailed` — Tunnel-Status
-- `ReconnectAttempt` / `ReconnectExhausted` — Resilience-Events
-
----
-
-## Phase 9: Multi-Arch & Distribution
-
-### TODO-9.1: Multi-Architecture Container Images
-
-**Beschreibung:** ARM64 (Raspberry Pi) und amd64 Support für alle Container Images.
-
-**Betroffene Dateien:**
-- `Dockerfile`, `Dockerfile.agent` — Multi-stage mit `--platform`
-- `.github/workflows/unit-tests.yml` — Buildx-Setup
-
-### TODO-9.2: Helm Chart
-
-**Beschreibung:** Helm Chart für einfaches Deployment im Cluster.
-
-**Neues Verzeichnis:** `charts/kubelink-usb/`
-
----
-
-# Testkonzept — Vollständigkeit und Coverage
-
-## Coverage-Ziele (bestehend + erweitert)
-
-| Package | Aktuell | Minimum | Ziel | Strategie |
-|---------|---------|---------|------|-----------|
-| **Gesamt** | ~80% | 80% | 85% | `hack/coverage-check.sh` |
-| `internal/security` | ~80% | 80% | 90% | Policy-Engine hat viele Verzweigungen → hohe Coverage nötig |
-| `internal/usbip` | ~50% | 50% | 75% | Protocol-Encoding muss lückenlos getestet sein |
-| `internal/controller` | ~70% | 70% | 85% | Jeder Reconcile-Pfad (success + error) |
-| `internal/agent` | ~60% | 60% | 80% | Discovery + Client/Server Lifecycle |
-| `internal/utils` | ~90% | 80% | 90% | Reine Funktionen, einfach testbar |
-| `api/v1alpha1` | ~80% | 80% | 80% | DeepCopy ist generiert, nur Smoke-Tests |
-
-## Teststrategie pro Komponente
-
-### 1. Policy-Engine (`internal/security`)
-
-**Art:** Table-Driven Unit-Tests
-
-```
-Testfälle für Engine.Allows():
-- Device matches Policy-Selector → true
-- Device VendorID mismatch → false
-- Device auf erlaubtem Node → true
-- Device auf nicht-erlaubtem Node → false
-- HID-Device + denyHumanInterfaceDevices → false
-- Leere Policy (kein Selector) → default allow/deny
-- Mehrere Policies matchen → Priorität/Merge-Verhalten
-```
-
-**Whitelist-Tests:**
-```
-- Add → Has = true
-- Nicht-Add → Has = false
-- Doppeltes Add → idempotent
-- Persistenz-Roundtrip (wenn persistent implementiert)
-```
-
-### 2. Controller-Reconciler (`internal/controller`)
-
-**Art:** Fake-Client-basierte Tests (kein envtest nötig für Entscheidungslogik)
-
-```
-USBDeviceReconciler:
-- Neues Device → Phase = PendingApproval ✅ (existiert)
-- Device mit Policy + Whitelist → Phase = Approved
-- Device mit Policy + Blacklist → Phase = Denied
-- Deletion → Finalizer entfernt ✅ (existiert)
-- Fehler bei Status-Update → Error propagiert
-
-ApprovalReconciler:
-- Approval mit Phase=Approved → Device-Phase wird Approved
-- Approval mit Phase=Denied → Device-Phase wird Denied
-- Approval abgelaufen (expiresAt) → wird ignoriert
-- Approval ohne existierendes Device → Error/Ignore
-
-USBConnectionReconciler:
-- Connection für Approved Device → Phase = Connecting
-- Connection für nicht-Approved Device → Phase = Denied
-- Deletion → Detach + Unexport ausgelöst
-- maxConcurrentConnections überschritten → Phase = Denied
-```
-
-### 3. Agent-Komponenten (`internal/agent`)
-
-**Art:** Unit-Tests + Integration-Tests mit Mock-Executables
-
-```
-Discovery:
-- fsnotify Create → add Event ✅ (existiert)
-- fsnotify Remove → remove Event ✅ (existiert)
-- USB-Pfad-Erkennung ✅ (existiert)
-- NEU: Event → K8s-CR-Erstellung (mit Fake-Client)
-- NEU: Reconnect-Erkennung via SerialNumber
-
-Server:
-- Export() → prüfe dass usbipd-Kommando korrekt aufgebaut wird
-- Unexport() → prüfe Cleanup
-- Export fehlschlägt → Error korrekt
-- NEU: Mock-Executable statt echtes usbipd (os/exec-Interface)
-
-Client:
-- Attach() → prüfe Kommando + Device-Path-Parsing
-- Detach() → prüfe Cleanup
-- NEU: Mock-Executable
-```
-
-### 4. USB/IP Protocol (`internal/usbip`)
-
-**Art:** Table-Driven Tests für Encoding, Integration-Tests für Client/Server
-
-```
-Protocol:
-- BasicHeader Encode/Decode Roundtrip ✅ (existiert)
-- Truncated Input → Error ✅ (existiert)
-- NEU: DevList Request/Response Encoding
-- NEU: Import Request/Response Encoding
-- NEU: Malformed Header → Error (Fuzzing)
-
-Server/Client Integration:
-- In-Process Server + Client → successful DevList exchange
-- Server nicht erreichbar → Timeout-Error
-- NEU: TLS-Handshake (wenn requireEncryption)
-```
-
-### 5. E2E-Tests (Spätere Phase)
-
-**Art:** envtest oder echtes Kind-Cluster
-
-```
-Szenario 1 — Happy Path:
-1. USBDevice CR erstellen
-2. Prüfe Phase = PendingApproval
-3. USBDeviceApproval CR erstellen (Approved)
-4. Prüfe Device Phase = Approved
-5. USBConnection CR erstellen
-6. Prüfe Connection Phase = Connected (mit Mock-Agent)
-7. Connection löschen
-8. Prüfe Cleanup
-
-Szenario 2 — Policy-Deny:
-1. USBDevicePolicy mit allowedNodes: ["node-b"]
-2. Device auf node-a erstellen
-3. Prüfe Phase bleibt PendingApproval oder wird Denied
-
-Szenario 3 — Auto-Approve:
-1. Policy mit autoApproveKnownDevices: true
-2. Device-Fingerprint in Whitelist
-3. Device erstellen → Prüfe Phase = Approved (ohne manuelles Approval)
-```
-
-## CI-Integration
-
-Der bestehende CI-Workflow (`.github/workflows/unit-tests.yml`) muss erweitert werden:
-
-1. **Coverage-Gates erweitern** — `hack/coverage-check.sh` um neue Package-Minima ergänzen
-2. **Controller-Package hinzufügen** — `CONTROLLER_MIN_COVERAGE=70` als Gate
-3. **Agent-Package hinzufügen** — `AGENT_MIN_COVERAGE=60` als Gate
-4. **E2E-Workflow** (optional, spätere Phase) — Kind-Cluster mit installiertem CRD
-
-## Vollständigkeits-Prüfung
-
-Für jede TODO wird ein abgeschlossener Zustand wie folgt verifiziert:
-
-| Kriterium | Prüfmethode |
-|-----------|-------------|
-| Unit-Tests vorhanden | `go test ./internal/<pkg>` deckt alle neuen Funktionen ab |
-| Coverage-Minimum erreicht | `make coverage-check` besteht im CI |
-| Kein Regression | Alle bestehenden Tests grün |
-| Docs aktuell | `make docs` generiert konsistente Ausgabe |
-| Lint sauber | `make lint` (gofmt + go vet) besteht |
-| Binaries bauen | `make build` erfolgreich |
-| Container bauen | `make docker-build` erfolgreich |
+| Gate | Aktuell | Status |
+|------|---------|--------|
+| `make lint` | gofmt + go vet | ✅ Besteht |
+| `make test` | 81+ Tests, alle grün | ✅ Besteht |
+| `make coverage-check` | 81.0% ≥ 80% | ✅ Besteht |
+| `make build` | bin/controller + bin/agent | ✅ Besteht |
+| `make docs` + git diff | CODE_REFERENCE.md aktuell | ✅ Besteht |

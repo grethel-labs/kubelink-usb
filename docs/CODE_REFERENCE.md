@@ -22,21 +22,39 @@ Use this structure for exported types and functions:
 | `github.com/grethel-labs/kubelink-usb/api/v1alpha1` | CRD API types and deep-copy behavior |
 | `github.com/grethel-labs/kubelink-usb/cmd/agent` | node agent entrypoint |
 | `github.com/grethel-labs/kubelink-usb/cmd/controller` | controller placeholder entrypoint |
+| `github.com/grethel-labs/kubelink-usb/cmd/kubectl-usb` | application code |
 | `github.com/grethel-labs/kubelink-usb/internal/agent` | node-local discovery and attach/export stubs |
+| `github.com/grethel-labs/kubelink-usb/internal/backup` | backup/restore storage and snapshot logic |
 | `github.com/grethel-labs/kubelink-usb/internal/controller` | reconcile loop and object lifecycle |
+| `github.com/grethel-labs/kubelink-usb/internal/metrics` | application code |
 | `github.com/grethel-labs/kubelink-usb/internal/security` | policy and TLS defaults |
 | `github.com/grethel-labs/kubelink-usb/internal/usbip` | USB/IP protocol/data-plane stubs |
 | `github.com/grethel-labs/kubelink-usb/internal/utils` | pure helper functions |
+| `github.com/grethel-labs/kubelink-usb/internal/webhook` | application code |
 
 ## Module Dependency Diagram (Generated)
 
 ```mermaid
 flowchart LR
+    github_com_grethel_labs_kubelink_usb_cmd_agent["github.com/grethel-labs/kubelink-usb/cmd/agent"] --> github_com_grethel_labs_kubelink_usb_api_v1alpha1["github.com/grethel-labs/kubelink-usb/api/v1alpha1"]
     github_com_grethel_labs_kubelink_usb_cmd_agent["github.com/grethel-labs/kubelink-usb/cmd/agent"] --> github_com_grethel_labs_kubelink_usb_internal_agent["github.com/grethel-labs/kubelink-usb/internal/agent"]
+    github_com_grethel_labs_kubelink_usb_cmd_agent["github.com/grethel-labs/kubelink-usb/cmd/agent"] --> github_com_grethel_labs_kubelink_usb_internal_metrics["github.com/grethel-labs/kubelink-usb/internal/metrics"]
     github_com_grethel_labs_kubelink_usb_cmd_controller["github.com/grethel-labs/kubelink-usb/cmd/controller"] --> github_com_grethel_labs_kubelink_usb_api_v1alpha1["github.com/grethel-labs/kubelink-usb/api/v1alpha1"]
+    github_com_grethel_labs_kubelink_usb_cmd_controller["github.com/grethel-labs/kubelink-usb/cmd/controller"] --> github_com_grethel_labs_kubelink_usb_internal_backup["github.com/grethel-labs/kubelink-usb/internal/backup"]
     github_com_grethel_labs_kubelink_usb_cmd_controller["github.com/grethel-labs/kubelink-usb/cmd/controller"] --> github_com_grethel_labs_kubelink_usb_internal_controller["github.com/grethel-labs/kubelink-usb/internal/controller"]
+    github_com_grethel_labs_kubelink_usb_cmd_controller["github.com/grethel-labs/kubelink-usb/cmd/controller"] --> github_com_grethel_labs_kubelink_usb_internal_metrics["github.com/grethel-labs/kubelink-usb/internal/metrics"]
+    github_com_grethel_labs_kubelink_usb_cmd_controller["github.com/grethel-labs/kubelink-usb/cmd/controller"] --> github_com_grethel_labs_kubelink_usb_internal_webhook["github.com/grethel-labs/kubelink-usb/internal/webhook"]
+    github_com_grethel_labs_kubelink_usb_cmd_kubectl_usb["github.com/grethel-labs/kubelink-usb/cmd/kubectl-usb"] --> github_com_grethel_labs_kubelink_usb_api_v1alpha1["github.com/grethel-labs/kubelink-usb/api/v1alpha1"]
+    github_com_grethel_labs_kubelink_usb_internal_agent["github.com/grethel-labs/kubelink-usb/internal/agent"] --> github_com_grethel_labs_kubelink_usb_api_v1alpha1["github.com/grethel-labs/kubelink-usb/api/v1alpha1"]
+    github_com_grethel_labs_kubelink_usb_internal_agent["github.com/grethel-labs/kubelink-usb/internal/agent"] --> github_com_grethel_labs_kubelink_usb_internal_metrics["github.com/grethel-labs/kubelink-usb/internal/metrics"]
+    github_com_grethel_labs_kubelink_usb_internal_agent["github.com/grethel-labs/kubelink-usb/internal/agent"] --> github_com_grethel_labs_kubelink_usb_internal_utils["github.com/grethel-labs/kubelink-usb/internal/utils"]
+    github_com_grethel_labs_kubelink_usb_internal_backup["github.com/grethel-labs/kubelink-usb/internal/backup"] --> github_com_grethel_labs_kubelink_usb_api_v1alpha1["github.com/grethel-labs/kubelink-usb/api/v1alpha1"]
     github_com_grethel_labs_kubelink_usb_internal_controller["github.com/grethel-labs/kubelink-usb/internal/controller"] --> github_com_grethel_labs_kubelink_usb_api_v1alpha1["github.com/grethel-labs/kubelink-usb/api/v1alpha1"]
+    github_com_grethel_labs_kubelink_usb_internal_controller["github.com/grethel-labs/kubelink-usb/internal/controller"] --> github_com_grethel_labs_kubelink_usb_internal_backup["github.com/grethel-labs/kubelink-usb/internal/backup"]
+    github_com_grethel_labs_kubelink_usb_internal_controller["github.com/grethel-labs/kubelink-usb/internal/controller"] --> github_com_grethel_labs_kubelink_usb_internal_metrics["github.com/grethel-labs/kubelink-usb/internal/metrics"]
+    github_com_grethel_labs_kubelink_usb_internal_controller["github.com/grethel-labs/kubelink-usb/internal/controller"] --> github_com_grethel_labs_kubelink_usb_internal_security["github.com/grethel-labs/kubelink-usb/internal/security"]
     github_com_grethel_labs_kubelink_usb_internal_security["github.com/grethel-labs/kubelink-usb/internal/security"] --> github_com_grethel_labs_kubelink_usb_api_v1alpha1["github.com/grethel-labs/kubelink-usb/api/v1alpha1"]
+    github_com_grethel_labs_kubelink_usb_internal_webhook["github.com/grethel-labs/kubelink-usb/internal/webhook"] --> github_com_grethel_labs_kubelink_usb_api_v1alpha1["github.com/grethel-labs/kubelink-usb/api/v1alpha1"]
 ```
 
 ## Controller Reconcile Flow

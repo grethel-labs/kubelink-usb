@@ -1,0 +1,13 @@
+KubeLink-USB has been installed.
+
+Controller deployment:
+  kubectl get deploy -n {{ .Release.Namespace }} {{ include "kubelink-usb.fullname" . }}-controller
+
+Agent daemonset:
+  kubectl get ds -n {{ .Release.Namespace }} {{ include "kubelink-usb.fullname" . }}-agent
+
+CRDs installed:
+  usbdevices.kubelink-usb.io
+  usbdeviceapprovals.kubelink-usb.io
+  usbdevicepolicies.kubelink-usb.io
+  usbconnections.kubelink-usb.io
