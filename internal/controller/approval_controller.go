@@ -19,6 +19,17 @@ import (
 )
 
 // ApprovalReconciler reconciles USBDeviceApproval objects and updates the referenced USBDevice phase.
+// It processes approval decisions (approve/deny/expire) and propagates the result
+// to the referenced USBDevice, driving the device through its security workflow.
+//
+// @component ApprovalReconciler["Approval Reconciler"] --> PolicyEngine["Policy Engine"]
+// @flow FetchApproval["Fetch Approval"] --> AlreadyDone{"Already processed?"}
+// @flow AlreadyDone -->|yes| SkipReturn["Return"]
+// @flow AlreadyDone -->|no| CheckExpiry{"Expired?"}
+// @flow CheckExpiry -->|yes| DenyExpired["Deny: expired"]
+// @flow CheckExpiry -->|no| LookupDevice["Lookup USBDevice"]
+// @flow LookupDevice -->|not found| DenyMissing["Deny: device missing"]
+// @flow LookupDevice -->|found| PropagatePhase["Propagate to device"]
 type ApprovalReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme

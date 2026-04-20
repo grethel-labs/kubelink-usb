@@ -9,6 +9,8 @@ import (
 )
 
 // DeviceProvider supplies the list of exported devices.
+// Implementations feed the USB/IP server with discoverable hardware.
+// The agent's discovery loop provides the concrete implementation.
 type DeviceProvider interface {
 	ListDevices() []DeviceInfo
 	GetDevice(busID string) (*DeviceInfo, bool)

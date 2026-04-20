@@ -5,6 +5,7 @@ import (
 )
 
 // WhitelistEntry represents a single approved USB device fingerprint.
+// Records when and by whom the device was added, and which policy triggered it.
 type WhitelistEntry struct {
 	Fingerprint string       `json:"fingerprint"`
 	AddedAt     *metav1.Time `json:"addedAt,omitempty"`
@@ -13,6 +14,7 @@ type WhitelistEntry struct {
 }
 
 // USBDeviceWhitelistSpec defines the desired state of USBDeviceWhitelist.
+// Entries contain fingerprints of devices pre-approved for automatic connection.
 type USBDeviceWhitelistSpec struct {
 	Entries []WhitelistEntry `json:"entries,omitempty"`
 }
@@ -29,6 +31,12 @@ type USBDeviceWhitelistStatus struct {
 // +kubebuilder:resource:scope=Cluster,shortName=usbwl
 
 // USBDeviceWhitelist is the Schema for the usbdevicewhitelists API.
+// Cluster-scoped CR holding a set of pre-approved device fingerprints.
+// The security engine consults the whitelist during policy evaluation to
+// skip manual approval for known-good devices.
+//
+// @component WhitelistCR["USBDeviceWhitelist"] --> PolicyEngine["Policy Engine"]
+// @relates USBDeviceWhitelist ||--o{ WhitelistEntry : "contains entries"
 type USBDeviceWhitelist struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

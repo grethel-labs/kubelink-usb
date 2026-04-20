@@ -17,6 +17,14 @@ import (
 )
 
 // RestoreReconciler reconciles USBRestore objects.
+// It implements a multi-phase restore lifecycle: validate backup integrity,
+// apply resources from snapshot, revalidate active connections, and terminate
+// any connections referencing deleted resources.
+//
+// @component RestoreReconciler["Restore Reconciler"] --> Storage["Backup Storage"]
+// @flow ValidateBackup["Validate backup + checksum"] --> ApplyResources["Delete + recreate CRs"]
+// @flow ApplyResources --> RevalidateConns["Revalidate connections"]
+// @flow RevalidateConns --> MarkCompleted["Phase=Completed"]
 type RestoreReconciler struct {
 	client.Client
 	Scheme  *runtime.Scheme

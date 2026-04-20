@@ -11,6 +11,8 @@ import (
 // Kubernetes ConfigMap semantics. In production, this would interact with the
 // Kubernetes API; the current implementation uses a map for unit-test and
 // small-deployment use.
+//
+// @component CMStorage["ConfigMapStorage"] --> K8sAPI["Kubernetes API"]
 type ConfigMapStorage struct {
 	name    string
 	entries map[string][]byte

@@ -5,12 +5,14 @@ import (
 )
 
 // BackupDestinationPVC configures PVC-based backup storage.
+// ClaimName selects the PersistentVolumeClaim; SubPath narrows to a directory.
 type BackupDestinationPVC struct {
 	ClaimName string `json:"claimName"`
 	SubPath   string `json:"subPath,omitempty"`
 }
 
 // BackupDestinationS3 configures S3-compatible backup storage.
+// Endpoint and Region are optional; SecretRef points to credentials.
 type BackupDestinationS3 struct {
 	Bucket    string                   `json:"bucket"`
 	Endpoint  string                   `json:"endpoint,omitempty"`
@@ -29,6 +31,11 @@ type BackupDestinationConfigMap struct {
 }
 
 // BackupDestination defines where backups are stored.
+// Exactly one of PVC, S3, or ConfigMap must be set, selected by the Type field.
+//
+// @relates BackupDestination ||--o| BackupDestinationPVC : "pvc backend"
+// @relates BackupDestination ||--o| BackupDestinationS3 : "s3 backend"
+// @relates BackupDestination ||--o| BackupDestinationConfigMap : "configmap backend"
 type BackupDestination struct {
 	Type      string                      `json:"type"`
 	PVC       *BackupDestinationPVC       `json:"pvc,omitempty"`
@@ -43,6 +50,7 @@ type AutoRestoreConfig struct {
 }
 
 // USBBackupConfigSpec defines the desired backup configuration.
+// Schedule uses cron syntax; RetentionCount limits stored snapshots.
 type USBBackupConfigSpec struct {
 	Schedule       string            `json:"schedule,omitempty"`
 	RetentionCount int32             `json:"retentionCount,omitempty"`
@@ -51,6 +59,7 @@ type USBBackupConfigSpec struct {
 }
 
 // USBBackupConfigStatus defines the observed backup configuration state.
+// Tracks the last successful backup and overall health of the backup pipeline.
 type USBBackupConfigStatus struct {
 	LastBackupTime *metav1.Time `json:"lastBackupTime,omitempty"`
 	LastBackupName string       `json:"lastBackupName,omitempty"`
@@ -64,6 +73,11 @@ type USBBackupConfigStatus struct {
 // +kubebuilder:resource:scope=Cluster,shortName=usbbc
 
 // USBBackupConfig is the Schema for the usbbackupconfigs API.
+// Cluster-scoped singleton that defines backup schedule, retention, and storage
+// destination for all USB CRD snapshots. Referenced by the BackupReconciler.
+//
+// @component USBBackupConfigCR["USBBackupConfig"] --> BackupReconciler["Backup Reconciler"]
+// @relates USBBackupConfig ||--|| BackupDestination : "has destination"
 type USBBackupConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

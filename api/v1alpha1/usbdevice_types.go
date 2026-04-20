@@ -5,6 +5,10 @@ import (
 )
 
 // USBDeviceSpec defines the desired state of USBDevice.
+// It captures the physical identity of a USB device discovered on a cluster node,
+// including vendor/product identifiers, bus path, and optional serial number.
+//
+// @relates USBDevice ||--|| USBDeviceSpec : "has spec"
 type USBDeviceSpec struct {
 	BusID        string `json:"busID"`
 	DevicePath   string `json:"devicePath"`
@@ -16,7 +20,9 @@ type USBDeviceSpec struct {
 	Description  string `json:"description,omitempty"`
 }
 
-// USBDeviceConnectionInfo describes where the USB device can be reached.
+// USBDeviceConnectionInfo describes where the USB device can be reached
+// when it has been exported via USB/IP. The host:port pair identifies the
+// usbipd endpoint and the exported bus ID names the virtual bus.
 type USBDeviceConnectionInfo struct {
 	Host          string `json:"host,omitempty"`
 	Port          int32  `json:"port,omitempty"`
@@ -24,6 +30,16 @@ type USBDeviceConnectionInfo struct {
 }
 
 // USBDeviceStatus defines the observed state of USBDevice.
+// Phase tracks the device lifecycle from initial discovery through approval
+// to active export or disconnection.
+//
+// @state [*] --> PendingApproval : Agent discovers device
+// @state PendingApproval --> Approved : Approval granted
+// @state PendingApproval --> Denied : Policy or manual reject
+// @state Approved --> Exported : Agent exports via USB/IP
+// @state Exported --> Disconnected : Device unplugged
+// @state Disconnected --> PendingApproval : Reconnect (unknown)
+// @state Disconnected --> Approved : Reconnect (whitelisted)
 type USBDeviceStatus struct {
 	Phase          string                   `json:"phase,omitempty"`
 	ConnectionInfo *USBDeviceConnectionInfo `json:"connectionInfo,omitempty"`
@@ -38,6 +54,14 @@ type USBDeviceStatus struct {
 // +kubebuilder:printcolumn:name="Node",type=string,JSONPath=`.spec.nodeName`
 
 // USBDevice is the Schema for the usbdevices API.
+// It represents a physical USB device discovered on a Kubernetes node.
+// Each device goes through a security-first approval workflow before
+// it can be shared across the cluster via USB/IP tunnels.
+//
+// @component USBDevice["USBDevice CR"] --> USBDeviceApproval["Approval CR"]
+// @component USBDevice --> USBConnection["Connection CR"]
+// @relates USBDevice ||--o{ USBDeviceApproval : "referenced by"
+// @relates USBDevice ||--o{ USBConnection : "referenced by"
 type USBDevice struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

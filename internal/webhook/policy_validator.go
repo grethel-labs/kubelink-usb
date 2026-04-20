@@ -17,6 +17,10 @@ import (
 var hexIDRegex = regexp.MustCompile(`^[0-9a-fA-F]{4}$`)
 
 // PolicyValidator validates USBDevicePolicy selector IDs.
+// It runs as a validating admission webhook, rejecting policies whose
+// vendor or product IDs are not valid 4-digit hex values.
+//
+// @component PolicyValidatorWH["PolicyValidator"] --> PolicyCR["USBDevicePolicy CR"]
 type PolicyValidator struct{}
 
 // NewPolicyValidator creates a policy validator.
@@ -24,14 +28,17 @@ func NewPolicyValidator() admission.CustomValidator {
 	return &PolicyValidator{}
 }
 
+// ValidateCreate validates a new USBDevicePolicy on create.
 func (v *PolicyValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
 	return nil, validatePolicyObject(obj)
 }
 
+// ValidateUpdate validates an updated USBDevicePolicy.
 func (v *PolicyValidator) ValidateUpdate(_ context.Context, _, newObj runtime.Object) (admission.Warnings, error) {
 	return nil, validatePolicyObject(newObj)
 }
 
+// ValidateDelete is a no-op for policy deletion.
 func (v *PolicyValidator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }

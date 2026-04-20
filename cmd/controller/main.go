@@ -1,3 +1,4 @@
+// Package main is the entrypoint for the kubelink-usb controller manager.
 package main
 
 import (
@@ -20,7 +21,8 @@ import (
 )
 
 var (
-	scheme = runtime.NewScheme()
+	scheme  = runtime.NewScheme()
+	version = "dev"
 )
 
 func init() {
@@ -41,6 +43,7 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 	setupLog := ctrl.Log.WithName("setup")
+	setupLog.Info("starting controller", "version", version)
 	kmetrics.Register()
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{

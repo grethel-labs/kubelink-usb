@@ -1,11 +1,12 @@
 FROM --platform=$BUILDPLATFORM golang:1.22-alpine AS builder
 ARG TARGETOS
 ARG TARGETARCH
+ARG VERSION=dev
 WORKDIR /workspace
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o manager ./cmd/controller
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -ldflags "-X main.version=${VERSION}" -o manager ./cmd/controller
 
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /

@@ -40,6 +40,16 @@ type USBRestoreSpec struct {
 }
 
 // USBRestoreStatus defines the observed state of USBRestore.
+// The restore follows a multi-phase lifecycle: validation, resource apply,
+// connection revalidation, and completion.
+//
+// @state [*] --> Validating : Restore created
+// @state Validating --> Restoring : Backup valid + checksum matches
+// @state Validating --> Completed : DryRun mode (validation only)
+// @state Validating --> Failed : Backup not found or checksum mismatch
+// @state Restoring --> RevalidatingConnections : Resources applied
+// @state RevalidatingConnections --> Completed : Connections validated
+// @state Restoring --> Failed : Apply error
 type USBRestoreStatus struct {
 	Phase                  string                  `json:"phase,omitempty"`
 	PreRestoreHealthCheck  *PreRestoreHealthCheck  `json:"preRestoreHealthCheck,omitempty"`
@@ -55,6 +65,12 @@ type USBRestoreStatus struct {
 // +kubebuilder:printcolumn:name="Trigger",type=string,JSONPath=`.spec.triggerType`
 
 // USBRestore is the Schema for the usbrestores API.
+// A restore recreates all security-relevant CRs from a verified backup
+// snapshot, revalidates active connections, and terminates any that
+// reference deleted resources. Can be triggered manually or automatically
+// by the HealthMonitor.
+//
+// @component Restore["Restore CR"] --> HealthMonitor["Health Monitor"]
 type USBRestore struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

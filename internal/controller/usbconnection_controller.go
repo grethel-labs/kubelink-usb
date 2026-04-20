@@ -28,6 +28,21 @@ const (
 )
 
 // USBConnectionReconciler orchestrates USB/IP tunnel lifecycle between nodes.
+// It manages the full connection state machine from initial request through
+// device approval verification, tunnel establishment, and failure handling
+// with configurable retry logic.
+//
+// @component ConnReconciler["Connection Reconciler"] --> AgentServer["Agent Export"]
+// @component ConnReconciler --> AgentClient["Agent Attach"]
+// @flow FetchConn["Fetch USBConnection"] --> CheckDel{"Deleted?"}
+// @flow CheckDel -->|yes| CleanupTunnel["Cleanup tunnel + remove finalizer"]
+// @flow CheckDel -->|no| EnsureFin["Ensure finalizer"]
+// @flow EnsureFin --> CheckPhase{"Phase empty?"}
+// @flow CheckPhase -->|yes| SetPending["Phase=Pending"]
+// @flow CheckPhase -->|no| CheckApproval{"Device approved?"}
+// @flow CheckApproval -->|no| MarkFailed["Phase=Failed"]
+// @flow CheckApproval -->|yes| SetConnecting["Phase=Connecting"]
+// @flow SetConnecting --> SetConnected["Phase=Connected"]
 type USBConnectionReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme

@@ -19,6 +19,19 @@ import (
 const usbDeviceFinalizer = "kubelink-usb.io/cleanup-export"
 
 // USBDeviceReconciler reconciles USBDevice objects.
+// It manages the initial lifecycle of discovered devices: adding cleanup
+// finalizers, bootstrapping status (PendingApproval phase), and ensuring
+// consistent state on the Kubernetes API.
+//
+// @component DeviceReconciler["USBDevice Reconciler"] --> USBDevice["USBDevice CR"]
+// @flow FetchDevice["Fetch USBDevice"] --> NotFound{"NotFound?"}
+// @flow NotFound -->|yes| ReturnEmpty["Return without requeue"]
+// @flow NotFound -->|no| CheckDeletion{"DeletionTimestamp?"}
+// @flow CheckDeletion -->|yes| RemoveFinalizer["Remove finalizer"]
+// @flow CheckDeletion -->|no| EnsureFinalizer["Ensure finalizer"]
+// @flow EnsureFinalizer --> InitStatus{"Phase empty?"}
+// @flow InitStatus -->|yes| SetPending["Set PendingApproval"]
+// @flow InitStatus -->|no| LogEvent["Log discovery"]
 type USBDeviceReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme

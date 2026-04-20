@@ -19,6 +19,15 @@ import (
 )
 
 // BackupReconciler reconciles USBBackup objects.
+// It collects all security-relevant CRs (whitelists, policies, approvals),
+// creates a checksummed snapshot, persists it via the configured storage
+// backend, and enforces retention limits.
+//
+// @component BackupReconciler["Backup Reconciler"] --> Storage["Backup Storage"]
+// @flow CollectCRs["List Whitelists+Policies+Approvals"] --> CreateSnapshot["Create Snapshot"]
+// @flow CreateSnapshot --> WriteStorage["Write to storage backend"]
+// @flow WriteStorage --> EnforceRetention["Enforce retention count"]
+// @flow EnforceRetention --> MarkCompleted["Phase=Completed"]
 type BackupReconciler struct {
 	client.Client
 	Scheme  *runtime.Scheme

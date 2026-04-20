@@ -1,3 +1,4 @@
+// Package main implements the kubectl-usb plugin for listing USB devices.
 package main
 
 import (

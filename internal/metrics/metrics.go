@@ -1,3 +1,5 @@
+// Package metrics registers Prometheus collectors for USB device discovery,
+// phase transitions, and approval latency observations.
 package metrics
 
 import (
@@ -44,6 +46,8 @@ var (
 )
 
 // Register ensures custom metrics are registered exactly once.
+// Called lazily by every Observe*/Update* function to guarantee
+// Prometheus collectors are available before recording.
 func Register() {
 	registerOnce.Do(func() {
 		registerMetric(discoveryEventsTotal)
@@ -63,18 +67,21 @@ func registerMetric(collector prometheus.Collector) {
 }
 
 // ObserveDiscoveryEvent increments discovery event counters.
+// Called by the agent discovery loop whenever a USB add/remove event fires.
 func ObserveDiscoveryEvent(eventType string) {
 	Register()
 	discoveryEventsTotal.WithLabelValues(eventType).Inc()
 }
 
 // ObserveApprovalDuration records approval processing latency.
+// Measured from USBDeviceApproval creation to reconciliation completion.
 func ObserveApprovalDuration(duration time.Duration) {
 	Register()
 	approvalLatencySeconds.Observe(duration.Seconds())
 }
 
 // ObservePhaseTransition records transition counts.
+// Labels include component name and the from/to phases.
 func ObservePhaseTransition(component, from, to string) {
 	Register()
 	if from == to {
@@ -84,12 +91,14 @@ func ObservePhaseTransition(component, from, to string) {
 }
 
 // UpdateDevicePhase updates device phase gauges and transition counters.
+// Decrements the old phase gauge and increments the new one.
 func UpdateDevicePhase(from, to string) {
 	Register()
 	updatePhaseGauge(devicePhaseCounts, usbDevicesGauge, "device", from, to)
 }
 
 // UpdateConnectionPhase updates connection phase gauges and transition counters.
+// Decrements the old phase gauge and increments the new one.
 func UpdateConnectionPhase(from, to string) {
 	Register()
 	updatePhaseGauge(connectionPhaseCounts, usbConnectionsGauge, "connection", from, to)
