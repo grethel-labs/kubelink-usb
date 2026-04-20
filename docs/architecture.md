@@ -25,7 +25,7 @@ flowchart LR
 ## Implementation Status
 
 ```mermaid
-pie title Component Completion (v1.0)
+pie title Component Completion (v0.1)
     "Complete" : 90
     "In Progress" : 10
 ```
@@ -51,7 +51,7 @@ pie title Component Completion (v1.0)
 | Whitelist (in-memory) | ✅ Complete | Thread-safe string set |
 | ConfigMap Backup Storage | ✅ Complete | Thread-safe in-memory map |
 | PVC Backup Storage | ✅ Complete | File-based with 0o600 permissions |
-| S3 Backup Storage | ⚠️ Mock | In-memory mock (real S3 SDK integration planned for v1.1) |
+| S3 Backup Storage | ⚠️ Mock | In-memory mock (real S3 SDK integration planned for v0.2) |
 | Discovery→CR Bridge | 🔶 Partial | Discovery logs events but doesn't yet create K8s CRs |
 
 ## End-to-End Workflow (Target State)

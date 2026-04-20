@@ -1,3 +1,5 @@
+// Package usbip implements the USB/IP wire protocol encoding, decoding,
+// and operation codes for device list and import requests.
 package usbip
 
 import (
@@ -6,6 +8,7 @@ import (
 	"io"
 )
 
+// USB/IP operation codes and protocol constants.
 const (
 	OPReqDevList uint16 = 0x8005
 	OPRepDevList uint16 = 0x0005
@@ -20,16 +23,20 @@ const (
 )
 
 // BasicHeader mirrors the USB/IP operation header in big-endian encoding.
+// It prefixes every USB/IP protocol message and identifies the operation
+// type (DevList, Import) along with the protocol version (0x0111).
 type BasicHeader struct {
 	Version uint16
 	Code    uint16
 	Status  uint32
 }
 
+// Encode writes the header in big-endian wire format.
 func (h *BasicHeader) Encode(w io.Writer) error {
 	return binary.Write(w, binary.BigEndian, h)
 }
 
+// Decode reads a big-endian header from the given reader.
 func (h *BasicHeader) Decode(r io.Reader) error {
 	return binary.Read(r, binary.BigEndian, h)
 }

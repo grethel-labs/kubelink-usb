@@ -22,6 +22,9 @@ jobs:
       - name: Run strict lint checks
         run: make lint
 
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v7
+
   unit-test:
     runs-on: ubuntu-latest
     needs: lint
@@ -78,6 +81,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Read project metadata
+        id: meta
+        run: |
+          # shellcheck source=project.env
+          source project.env
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "registry=$REGISTRY" >> "$GITHUB_OUTPUT"
+          echo "controller_img=$CONTROLLER_IMG" >> "$GITHUB_OUTPUT"
+          echo "agent_img=$AGENT_IMG" >> "$GITHUB_OUTPUT"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -91,7 +104,8 @@ jobs:
           file: Dockerfile
           push: false
           platforms: linux/amd64,linux/arm64
-          tags: kubelink-usb-controller:ci
+          build-args: VERSION=${{ steps.meta.outputs.version }}
+          tags: ${{ steps.meta.outputs.controller_img }}:ci
 
       - name: Build agent image
         uses: docker/build-push-action@v6
@@ -100,7 +114,24 @@ jobs:
           file: Dockerfile.agent
           push: false
           platforms: linux/amd64,linux/arm64
-          tags: kubelink-usb-agent:ci
+          build-args: VERSION=${{ steps.meta.outputs.version }}
+          tags: ${{ steps.meta.outputs.agent_img }}:ci
+
+  helm-lint:
+    runs-on: ubuntu-latest
+    needs: unit-test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Helm lint
+        run: helm lint charts/kubelink-usb
+
+      - name: Helm template
+        run: helm template kubelink-usb charts/kubelink-usb
 
   docs-check:
     runs-on: ubuntu-latest
@@ -113,6 +144,9 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+
+      - name: Install gomarkdoc
+        run: go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@v1.1.0
 
       - name: Regenerate code docs
         run: make docs
@@ -127,6 +161,7 @@ jobs:
       - unit-test
       - build-binaries
       - build-images
+      - helm-lint
       - docs-check
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
@@ -135,6 +170,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Read project metadata
+        id: meta
+        run: |
+          # shellcheck source=project.env
+          source project.env
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "registry=$REGISTRY" >> "$GITHUB_OUTPUT"
+          echo "controller_img=$CONTROLLER_IMG" >> "$GITHUB_OUTPUT"
+          echo "agent_img=$AGENT_IMG" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -156,9 +201,11 @@ jobs:
           file: Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
+          build-args: VERSION=${{ steps.meta.outputs.version }}
           tags: |
-            ghcr.io/${{ github.repository_owner }}/kubelink-usb-controller:latest
-            ghcr.io/${{ github.repository_owner }}/kubelink-usb-controller:${{ github.sha }}
+            ${{ steps.meta.outputs.registry }}/${{ steps.meta.outputs.controller_img }}:latest
+            ${{ steps.meta.outputs.registry }}/${{ steps.meta.outputs.controller_img }}:${{ steps.meta.outputs.version }}
+            ${{ steps.meta.outputs.registry }}/${{ steps.meta.outputs.controller_img }}:${{ github.sha }}
 
       - name: Publish agent image
         uses: docker/build-push-action@v6
@@ -167,6 +214,8 @@ jobs:
           file: Dockerfile.agent
           push: true
           platforms: linux/amd64,linux/arm64
+          build-args: VERSION=${{ steps.meta.outputs.version }}
           tags: |
-            ghcr.io/${{ github.repository_owner }}/kubelink-usb-agent:latest
-            ghcr.io/${{ github.repository_owner }}/kubelink-usb-agent:${{ github.sha }}
+            ${{ steps.meta.outputs.registry }}/${{ steps.meta.outputs.agent_img }}:latest
+            ${{ steps.meta.outputs.registry }}/${{ steps.meta.outputs.agent_img }}:${{ steps.meta.outputs.version }}
+            ${{ steps.meta.outputs.registry }}/${{ steps.meta.outputs.agent_img }}:${{ github.sha }}

@@ -1,24 +1,8 @@
 # kubelink-usb (K8s-USBIP)
 
+> **Early-Stage Software (v0.1-alpha)** — This project is in an early development phase and not yet production-ready. APIs, CRDs, and behavior may change without notice. This codebase has been generated almost entirely (~100%) by AI (GitHub Copilot / Claude) and should be reviewed carefully before any production use.
+
 A Kubernetes operator and node agent for sharing USB devices across cluster nodes via USB/IP with a security-first approval flow, backup/restore capabilities, and automated health monitoring.
-
-## Project Status
-
-| Area | Status | Coverage |
-|------|--------|----------|
-| **CRD API Types** (8 resources) | ✅ Complete | 98.9% |
-| **USBDevice Reconciler** (finalizer + status) | ✅ Complete | 84.0% |
-| **Backup/Restore System** (snapshot, storage, controllers) | ✅ Complete | 91.2% |
-| **Health Monitor** (consistency checks, auto-restore) | ✅ Complete | — |
-| **Discovery Watcher** (fsnotify, event normalization) | ✅ Complete | 69.0% |
-| **TLS Baseline** + Whitelist | ✅ Complete | 100.0% |
-| **Policy Engine** (vendor/product/node/HID matching) | ✅ Complete | 94.3% |
-| **Approval Controller** (approve/deny/expire workflow) | ✅ Complete | — |
-| **Connection Controller** (tunnel lifecycle) | ✅ Complete | — |
-| **Agent Client/Server** (Attach/Export via CommandRunner) | ✅ Complete | — |
-| **USB/IP Protocol** (DevList + Import frames, Server/Client) | ✅ Complete | 57.2% |
-| **Device Fingerprinting** (DNS-safe CR naming) | ✅ Complete | 100.0% |
-| **Overall** | ~90% of v1.0 | **81.0%** |
 
 ## Architecture
 
@@ -63,7 +47,7 @@ A Kubernetes operator and node agent for sharing USB devices across cluster node
 
 1. Build binaries:
    ```bash
-   make build          # outputs bin/controller + bin/agent
+   make build          # outputs bin/controller + bin/agent + bin/kubectl-usb
    ```
 2. Install CRDs:
    ```bash
@@ -79,7 +63,11 @@ A Kubernetes operator and node agent for sharing USB devices across cluster node
    ```
 5. Build container images:
    ```bash
-   make docker-build   # builds both controller + agent images
+   make docker-build   # builds both controller + agent images (version from project.env)
+   ```
+6. Deploy via Helm:
+   ```bash
+   helm install kubelink-usb charts/kubelink-usb
    ```
 
 ## CRD Resources (8 types)
@@ -98,11 +86,13 @@ A Kubernetes operator and node agent for sharing USB devices across cluster node
 ## CI Automation
 
 GitHub Actions workflow `.github/workflows/unit-tests.yml` validates:
-- strict linting (`gofmt` check + `go vet`)
-- unit tests (`make test`) — 81+ test functions across 15+ files
-- coverage gates (`make coverage-check`, overall minimum 80%, currently **81.0%**)
+- strict linting (`gofmt` check + `go vet` + `golangci-lint` with `revive`)
+- exported symbol documentation enforcement (`revive/exported` + `revive/package-comments`)
+- unit tests (`make test`) — 80+ test functions across 15+ files
+- coverage gates (`make coverage-check`, overall minimum 80%, currently **80.0%**)
 - binary builds (`make build`) with uploaded artifacts
-- container image builds for controller and agent
+- container image builds for controller and agent (multi-arch: amd64 + arm64)
+- Helm chart validation (`helm lint` + `helm template`)
 - generated documentation consistency (`make docs` + committed output)
 - automatic image publishing to GHCR on `push` to `main`
 
@@ -121,10 +111,15 @@ Repository license: **Apache-2.0** (`LICENSE`).
 
 - Unified commenting structure defined in `docs/CODE_REFERENCE.md`
 - Detailed architecture and workflow diagrams in `docs/architecture.md`
-- Implementation roadmap with progress tracking in `docs/TODO.md`
+- Auto-generated Mermaid diagrams from `@component`/`@relates`/`@state`/`@flow` annotations in `docs/DIAGRAMS.md`
+- API documentation generated from Go doc comments via [gomarkdoc](https://github.com/princjef/gomarkdoc)
+- Comment documentation enforced by `golangci-lint` + `revive` (`exported`, `package-comments` rules)
+- Dependency graph generation via [goda](https://github.com/loov/goda) + Graphviz
 - Auto-generated reference:
   ```bash
-  make docs
+  make docs          # CODE_REFERENCE.md + per-package DOC.md + DIAGRAMS.md
+  make docs-deps     # dependency-graph.svg (requires goda + graphviz)
+  make helm-lint     # validate Helm chart
   ```
 
 ## Security Highlights

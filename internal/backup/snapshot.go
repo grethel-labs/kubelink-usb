@@ -11,6 +11,9 @@ import (
 )
 
 // SnapshotData holds the serializable configuration resources captured in a backup.
+// It contains all security-relevant CRs that define the system's policy state:
+// whitelists (fingerprint-based auto-approve), policies (selector rules),
+// and approvals (individual device decisions).
 type SnapshotData struct {
 	Whitelists []usbv1alpha1.USBDeviceWhitelist `json:"whitelists"`
 	Policies   []usbv1alpha1.USBDevicePolicy    `json:"policies"`
@@ -18,6 +21,8 @@ type SnapshotData struct {
 }
 
 // Snapshot is the top-level envelope written to backup storage.
+// It wraps the SnapshotData with metadata (version, timestamp) and a
+// SHA-256 checksum for integrity verification during restore.
 type Snapshot struct {
 	Version   string       `json:"version"`
 	CreatedAt time.Time    `json:"createdAt"`

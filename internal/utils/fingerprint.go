@@ -1,3 +1,5 @@
+// Package utils provides pure helper functions for fingerprinting,
+// network probing, and udev identifier parsing.
 package utils
 
 import (

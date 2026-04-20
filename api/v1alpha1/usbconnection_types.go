@@ -16,6 +16,8 @@ type USBConnectionPodSelector struct {
 }
 
 // USBConnectionSpec defines the desired state of USBConnection.
+// It references a cluster-scoped USBDevice and identifies the client node
+// that should receive the USB/IP tunnel attachment.
 type USBConnectionSpec struct {
 	DeviceRef   USBConnectionDeviceRef    `json:"deviceRef"`
 	ClientNode  string                    `json:"clientNode"`
@@ -30,6 +32,15 @@ type USBConnectionTunnelInfo struct {
 }
 
 // USBConnectionStatus defines the observed state of USBConnection.
+// Phase tracks the tunnel lifecycle from request through establishment
+// to eventual disconnection or failure.
+//
+// @state [*] --> Pending : Connection requested
+// @state Pending --> Connecting : Device approved + export ready
+// @state Connecting --> Connected : Attach successful
+// @state Connected --> Disconnected : Network/device failure
+// @state Disconnected --> Connecting : Reconnect attempt
+// @state Disconnected --> Failed : Max retries exhausted
 type USBConnectionStatus struct {
 	Phase            string                   `json:"phase,omitempty"`
 	ClientDevicePath string                   `json:"clientDevicePath,omitempty"`
@@ -44,6 +55,13 @@ type USBConnectionStatus struct {
 // +kubebuilder:resource:scope=Namespaced,shortName=usbconn
 
 // USBConnection is the Schema for the usbconnections API.
+// It represents a USB/IP tunnel between a source node (device host) and
+// a client node (device consumer). The tunnel lifecycle is managed by the
+// USBConnectionReconciler and terminated via finalizer cleanup.
+//
+// @component USBConnection["Connection CR"] --> AgentServer["Agent Export"]
+// @component USBConnection --> AgentClient["Agent Attach"]
+// @relates USBConnection }o--|| USBDevice : "targets"
 type USBConnection struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

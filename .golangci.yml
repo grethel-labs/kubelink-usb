@@ -1,0 +1,45 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - revive
+
+  settings:
+    revive:
+      severity: warning
+      rules:
+        # Enforce that exported types/functions have a comment starting with their name
+        - name: exported
+          severity: warning
+          arguments:
+            - "checkPrivateReceivers"
+            - "disableStutteringCheck"
+        # Enforce package-level comments
+        - name: package-comments
+          severity: warning
+        # Standard Go conventions
+        - name: blank-imports
+        - name: context-as-argument
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: increment-decrement
+        - name: var-naming
+        - name: var-declaration
+        - name: range
+        - name: receiver-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unreachable-code
+
+  exclusions:
+    paths:
+      - "zz_generated.*"
+    rules:
+      - path: _test\.go
+        linters:
+          - revive

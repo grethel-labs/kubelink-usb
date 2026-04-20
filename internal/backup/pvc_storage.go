@@ -10,6 +10,10 @@ import (
 )
 
 // PVCStorage persists backup snapshots as files in a PVC-mounted directory.
+// Each snapshot is stored as a JSON file; directory structure is derived from
+// the PVC claim name and optional sub-path.
+//
+// @component PVCBackupStorage["PVCStorage"] --> Filesystem["PVC Mount"]
 type PVCStorage struct {
 	basePath string
 	mu       sync.Mutex

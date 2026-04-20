@@ -26,7 +26,18 @@ type HealthCheckResult struct {
 }
 
 // HealthMonitor performs periodic consistency checks and triggers auto-restore
-// when the system is found to be unhealthy.
+// when the system is found to be unhealthy. It enforces a cooldown period
+// (10 min) between auto-restores and a maximum retry count (3) to prevent
+// restore loops.
+//
+// @component HealthMonitor["Health Monitor"] --> RestoreReconciler["Restore Reconciler"]
+// @flow CheckHealth["Check consistency"] --> IsHealthy{"Healthy?"}
+// @flow IsHealthy -->|yes| Done["No action"]
+// @flow IsHealthy -->|no| CheckCooldown{"Cooldown elapsed?"}
+// @flow CheckCooldown -->|no| Done
+// @flow CheckCooldown -->|yes| CheckRetries{"Max retries?"}
+// @flow CheckRetries -->|yes| GiveUp["Give up"]
+// @flow CheckRetries -->|no| TriggerRestore["Create USBRestore CR"]
 type HealthMonitor struct {
 	client client.Client
 }

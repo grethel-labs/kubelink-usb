@@ -7,6 +7,10 @@ import (
 )
 
 // Client manages vhci attachment lifecycle on a node.
+// It wraps the usbip CLI tool via the CommandRunner interface, executing
+// attach/detach operations to connect or disconnect remote USB devices.
+//
+// @component AgentClient["Agent Attach"] --> USBIP["usbip attach/detach"]
 type Client struct {
 	Runner CommandRunner
 }

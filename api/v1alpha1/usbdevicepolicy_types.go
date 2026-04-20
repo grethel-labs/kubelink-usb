@@ -5,6 +5,8 @@ import (
 )
 
 // USBDevicePolicySelector identifies which devices are targeted by this policy.
+// Matching uses case-insensitive comparison on vendor/product IDs and
+// exact node name matching from the NodeNames list.
 type USBDevicePolicySelector struct {
 	VendorID  string   `json:"vendorID,omitempty"`
 	ProductID string   `json:"productID,omitempty"`
@@ -19,6 +21,8 @@ type USBDeviceApprovalConfig struct {
 }
 
 // USBDeviceRestrictions defines policy restrictions.
+// These constraints are evaluated after selector matching and control which
+// nodes, namespaces, and device classes are permitted, plus HID blocking.
 type USBDeviceRestrictions struct {
 	AllowedNodes              []string `json:"allowedNodes,omitempty"`
 	AllowedNamespaces         []string `json:"allowedNamespaces,omitempty"`
@@ -55,6 +59,13 @@ type USBDevicePolicyStatus struct {
 // +kubebuilder:resource:scope=Namespaced,shortName=usbp
 
 // USBDevicePolicy is the Schema for the usbdevicepolicies API.
+// Policies define security rules that govern device approval, namespace
+// isolation, and connection restrictions. The policy engine evaluates
+// all matching policies before a device can transition to Approved.
+//
+// @component PolicyCR["USBDevicePolicy CR"] --> PolicyEngine["Policy Engine"]
+// @relates USBDevicePolicy ||--o{ USBDeviceApproval : "governs"
+// @relates USBDevicePolicy ||--o{ USBDevice : "controls"
 type USBDevicePolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

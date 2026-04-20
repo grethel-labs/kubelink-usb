@@ -1,3 +1,5 @@
+// Package webhook implements admission webhooks for defaulting and
+// validating USB device and policy custom resources.
 package webhook
 
 import (
@@ -11,6 +13,10 @@ import (
 )
 
 // DeviceDefaulter sets defaults for USBDevice fields.
+// It runs as a mutating admission webhook to ensure every USBDevice has
+// sensible initial values for DeviceClass, Description, and NodeName.
+//
+// @component DeviceDefaulterWH["DeviceDefaulter"] --> USBDevice["USBDevice CR"]
 type DeviceDefaulter struct{}
 
 // NewDeviceDefaulter creates a USBDevice defaulter.
@@ -18,6 +24,7 @@ func NewDeviceDefaulter() admission.CustomDefaulter {
 	return &DeviceDefaulter{}
 }
 
+// Default sets default values for empty USBDevice fields.
 func (d *DeviceDefaulter) Default(_ context.Context, obj runtime.Object) error {
 	device, ok := obj.(*usbv1alpha1.USBDevice)
 	if !ok {

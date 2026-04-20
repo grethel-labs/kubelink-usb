@@ -1,3 +1,5 @@
+// Package backup implements snapshot creation, storage, and retrieval for
+// USB CRD backup and restore workflows.
 package backup
 
 import (
@@ -8,12 +10,19 @@ import (
 )
 
 // BackupMetadata describes a stored backup without its data payload.
+// Used by BackupStorage.List to enumerate available snapshots.
 type BackupMetadata struct {
 	Name string
 	Size int64
 }
 
 // BackupStorage abstracts how backup snapshots are persisted and retrieved.
+// Implementations include ConfigMap, PVC, and S3 backends selected at runtime
+// via NewStorage based on USBBackupConfig destination settings.
+//
+// @component Storage["Backup Storage"] --> CMStorage["ConfigMapStorage"]
+// @component Storage["Backup Storage"] --> PVCBackupStorage["PVCStorage"]
+// @component Storage["Backup Storage"] --> S3BackupStorage["S3Storage"]
 type BackupStorage interface {
 	Write(ctx context.Context, name string, data []byte) error
 	Read(ctx context.Context, name string) ([]byte, error)

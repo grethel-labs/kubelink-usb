@@ -2,14 +2,14 @@ controller:
   replicaCount: 1
   image:
     repository: ghcr.io/grethel-labs/kubelink-usb-controller
-    tag: latest
+    tag: ""  # defaults to Chart appVersion
     pullPolicy: IfNotPresent
   resources: {}
 
 agent:
   image:
     repository: ghcr.io/grethel-labs/kubelink-usb-agent
-    tag: latest
+    tag: ""  # defaults to Chart appVersion
     pullPolicy: IfNotPresent
   resources: {}
 

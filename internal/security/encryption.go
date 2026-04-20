@@ -1,3 +1,5 @@
+// Package security provides policy evaluation, whitelist management,
+// and encryption helpers for USB device access control.
 package security
 
 import (

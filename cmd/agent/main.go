@@ -1,3 +1,4 @@
+// Package main is the entrypoint for the kubelink-usb node agent.
 package main
 
 import (
@@ -18,12 +19,16 @@ import (
 	"github.com/grethel-labs/kubelink-usb/internal/metrics"
 )
 
+// version is set at build time via -ldflags "-X main.version=..."
+var version = "dev"
+
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	metrics.Register()
 	logger := log.Default()
+	logger.Printf("starting agent version=%s", version)
 
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))

@@ -7,6 +7,14 @@ import (
 )
 
 // Engine evaluates policy decisions for discovered devices.
+// It checks vendor/product ID selectors, node restrictions, device class
+// filtering, and HID denial rules. All comparisons are case-insensitive.
+//
+// @component PolicyEngine["Policy Engine"] --> PolicyCR["USBDevicePolicy CR"]
+// @flow CheckSelector["Match vendor/product/node"] --> CheckRestrictions["Check restrictions"]
+// @flow CheckRestrictions --> CheckHID{"HID blocked?"}
+// @flow CheckHID -->|yes| Deny["Deny"]
+// @flow CheckHID -->|no| Allow["Allow"]
 type Engine struct{}
 
 // Allows checks whether a device is permitted by the given policy.

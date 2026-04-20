@@ -1,3 +1,5 @@
+// Package agent implements node-local USB device discovery, USB/IP export/import
+// lifecycle, and the bridge that synchronises discovered devices with the Kubernetes API.
 package agent
 
 import (
@@ -18,6 +20,14 @@ import (
 )
 
 // USBDeviceBridge syncs discovery events into USBDevice CRs.
+// On "add" events it creates a new USBDevice CR using DeviceFingerprint
+// for naming. On "remove" events it sets the device phase to Disconnected.
+// This bridges the gap between node-local fsnotify events and the
+// Kubernetes API.
+//
+// @component Bridge["Discovery→CR Bridge"] --> K8sAPI["Kubernetes API"]
+// @flow OnAdd["add event"] --> CreateCR["Create USBDevice CR"]
+// @flow OnRemove["remove event"] --> SetDisconnected["Phase=Disconnected"]
 type USBDeviceBridge struct {
 	client   client.Client
 	nodeName string

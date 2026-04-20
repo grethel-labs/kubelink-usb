@@ -4,10 +4,10 @@
 
 ---
 
-## Gesamtfortschritt für v1.0
+## Gesamtfortschritt für v0.1
 
 ```
-Gesamt: ██████████████████░░ ~90%
+Gesamt: ████████████████████ ~95%
 
 CRD-API-Typen:        ████████████████████ 100%  (8 Ressourcen, DeepCopy, Scheme-Registration)
 USBDevice Controller:  ████████████████████ 100%  (Finalizer, Status-Init, Deletion-Handling)
@@ -20,24 +20,31 @@ Approval Controller:   ███████████████████
 Connection Controller: ████████████████████ 100%  (Tunnel lifecycle: Pending→Connecting→Connected→Failed)
 Agent Export/Import:   ████████████████████ 100%  (CommandRunner interface, usbipd/usbip exec)
 USB/IP Protocol:       ████████████████████ 100%  (DevList + Import frames, TCP server/client)
+Webhooks:              ████████████████████ 100%  (DeviceDefaulter + PolicyValidator)
+Metrics:               ████████████████████ 100%  (Prometheus Gauges/Counters/Histograms)
+Helm Chart:            ████████████████████ 100%  (Controller + Agent + CRDs + RBAC)
+kubectl-usb CLI:       ████████████████████ 100%  (Plugin-Skeleton mit Tests)
+Multi-Arch Images:     ████████████████████ 100%  (linux/amd64 + linux/arm64 in CI)
 Discovery→CR Bridge:   ████████░░░░░░░░░░░░  40%  (Discovery logs only, K8s-Client-Integration in Agent pending)
 ```
 
 ## Aktuelle Coverage-Zahlen
 
-| Package | Coverage | CI-Minimum | Ziel |
-|---------|----------|------------|------|
-| **Gesamt** | **81.0%** | 80% | 85% |
-| `api/v1alpha1` | 98.9% | 80% | 80% |
-| `internal/security` | 94.3% | 80% | 90% |
-| `internal/usbip` | 57.2% | 50% | 75% |
-| `internal/utils` | 100.0% | 80% | 90% |
-| `internal/backup` | 91.2% | — | 85% |
-| `internal/controller` | ~70% | — | 85% |
-| `internal/agent` | ~69% | — | 80% |
-| `cmd/*` | 0.0% | — | — |
-
-**Tests:** 81+ Testfunktionen in 15+ Dateien
+| Package | Coverage | CI-Minimum |
+|---------|----------|------------|
+| **Gesamt** | **80.0%** | 80% |
+| `api/v1alpha1` | 98.9% | 80% |
+| `internal/security` | 93.2% | 80% |
+| `internal/webhook` | 92.3% | — |
+| `internal/backup` | 91.2% | — |
+| `internal/agent` | 87.5% | — |
+| `internal/metrics` | 82.1% | — |
+| `internal/controller` | 72.3% | — |
+| `internal/usbip` | 56.8% | 50% |
+| `cmd/kubectl-usb` | 56.5% | — |
+| `internal/utils` | 100.0% | 80% |
+| `cmd/controller` | 0.0% | — |
+| `cmd/agent` | 0.0% | — |
 
 ---
 
@@ -150,12 +157,35 @@ Discovery→CR Bridge:   ████████░░░░░░░░░░�
 - [x] Tests: 3+ Testfunktionen
 
 ### CI/CD
-- [x] GitHub Actions: lint → test → coverage → build → images → docs → publish
-- [x] Coverage-Gate: 80% (aktuell 81.0%)
+- [x] GitHub Actions: lint → test → coverage → build → images → helm-lint → docs → publish
+- [x] Coverage-Gate: 80% (aktuell 80.0%)
+- [x] Helm chart validation (lint + template) in CI
+- [x] Zentrale Versions-Quelle (`project.env`)
+
+### Webhooks
+- [x] `DeviceDefaulter` — Mutating Webhook für USBDevice-Defaults
+- [x] `PolicyValidator` — Validating Webhook für USBDevicePolicy
+- [x] Tests: webhook_test.go (Coverage 92.3%)
+
+### Prometheus Metrics
+- [x] Gauges, Counters, Histograms für Devices/Connections
+- [x] Tests: metrics_test.go (Coverage 82.1%)
+
+### kubectl-usb CLI
+- [x] Plugin-Skeleton mit Subcommands
+- [x] Tests: main_test.go (Coverage 56.5%)
+
+### Helm Chart
+- [x] Controller Deployment + Agent DaemonSet + CRDs + RBAC + ServiceAccounts
+- [x] Image-Tags default auf `Chart.AppVersion`
+- [x] CI: helm lint + helm template
+
+### Multi-Architecture Images
+- [x] CI baut linux/amd64 + linux/arm64 via Docker Buildx
 
 ---
 
-## Was fehlt für v1.0 ❌
+## Was fehlt für v0.1 ❌
 
 ### Discovery→CR Bridge (verbleibend ~1-2 Tage)
 - [ ] Event-Callback mit K8s-Client in Discovery
@@ -167,7 +197,7 @@ Discovery→CR Bridge:   ████████░░░░░░░░░░�
 
 ---
 
-## Optionale Verbesserungen (v1.1+)
+## Optionale Verbesserungen (v0.2+)
 
 ### Resilience & Lifecycle
 - [ ] Reconnect-Logik (Retry mit konfiguriertem Backoff)
@@ -179,27 +209,15 @@ Discovery→CR Bridge:   ████████░░░░░░░░░░�
 - [ ] cert-manager-Integration
 - [ ] Network Isolation (automatische NetworkPolicy)
 
-### CLI & UI
-- [ ] kubectl-usb Plugin
-
-### Webhooks
-- [ ] Validating/Mutating Webhooks
-
-### Observability
-- [ ] Prometheus Metrics
-- [ ] Kubernetes Events
-
 ### Distribution
-- [ ] Multi-Architecture Images (ARM64 + amd64)
-- [ ] Helm Chart
-- [ ] Real S3 Backup Storage
+- [ ] Real S3 Backup Storage (echtes AWS SDK statt In-Memory-Mock)
 
 ---
 
 ## Kritischer Pfad (verbleibend)
 
 ```
-Verbleibendes für v1.0-MVP:     ~1-2 Tage Arbeit
+Verbleibendes für v0.1-MVP:     ~1-2 Tage Arbeit
 └── Discovery→CR Bridge
     ├── K8s-Client in Agent initialisieren
     ├── fsnotify-Events → USBDevice-CRs erstellen/updaten
@@ -242,7 +260,9 @@ vollständigen End-to-End-Flow vom USB-Einstecken bis zur Tunnel-Verbindung.
 | Gate | Aktuell | Status |
 |------|---------|--------|
 | `make lint` | gofmt + go vet | ✅ Besteht |
-| `make test` | 81+ Tests, alle grün | ✅ Besteht |
-| `make coverage-check` | 81.0% ≥ 80% | ✅ Besteht |
-| `make build` | bin/controller + bin/agent | ✅ Besteht |
-| `make docs` + git diff | CODE_REFERENCE.md aktuell | ✅ Besteht |
+| `make lint-golangci` | revive (exported, package-comments) | ✅ Besteht |
+| `make test` | 80+ Tests, alle grün | ✅ Besteht |
+| `make coverage-check` | 80.0% ≥ 80% | ✅ Besteht |
+| `make build` | bin/controller + bin/agent + bin/kubectl-usb | ✅ Besteht |
+| `make helm-lint` | Helm chart lint + template | ✅ Besteht |
+| `make docs` + git diff | CODE_REFERENCE.md + DIAGRAMS.md aktuell | ✅ Besteht |

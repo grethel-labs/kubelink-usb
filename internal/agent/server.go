@@ -26,6 +26,10 @@ func (r *ExecRunner) Run(ctx context.Context, name string, args ...string) ([]by
 }
 
 // Server manages usbipd export lifecycle on a node.
+// It wraps the usbipd CLI tool via the CommandRunner interface, executing
+// bind/unbind operations to share or unshare local USB devices.
+//
+// @component AgentServer["Agent Export"] --> USBIPd["usbipd bind/unbind"]
 type Server struct {
 	Runner CommandRunner
 }

@@ -18,6 +18,12 @@ type USBBackupSpec struct {
 }
 
 // USBBackupStatus defines the observed state of USBBackup.
+// Tracks backup progress, resulting checksum for integrity verification,
+// and item counts for audit purposes.
+//
+// @state [*] --> InProgress : Backup created
+// @state InProgress --> Completed : Snapshot written + checksum computed
+// @state InProgress --> Failed : Storage error or collection failure
 type USBBackupStatus struct {
 	Phase       string            `json:"phase,omitempty"`
 	CompletedAt *metav1.Time      `json:"completedAt,omitempty"`
@@ -34,6 +40,13 @@ type USBBackupStatus struct {
 // +kubebuilder:printcolumn:name="Trigger",type=string,JSONPath=`.spec.triggerType`
 
 // USBBackup is the Schema for the usbbackups API.
+// Each backup captures a point-in-time snapshot of all security-relevant
+// CRs (whitelists, policies, approvals) with SHA-256 integrity checksums.
+// The backup storage backend is determined by the associated USBBackupConfig.
+//
+// @component Backup["Backup CR"] --> Storage["Backup Storage"]
+// @relates USBBackupConfig ||--o{ USBBackup : "configures"
+// @relates USBBackup ||--o{ USBRestore : "source for"
 type USBBackup struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

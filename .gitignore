@@ -1,1 +1,16 @@
 /bin/
+
+# OS artifacts
+.DS_Store
+
+# Editor swap/backup files
+*.swp
+*~
+
+# sed backup files
+*.yaml-e
+
+# Test artifacts
+coverage.out
+__debug_bin*
+*.test

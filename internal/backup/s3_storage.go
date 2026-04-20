@@ -10,6 +10,8 @@ import (
 // S3Storage is a placeholder implementation for S3-compatible backup storage.
 // A production implementation would use an S3 SDK; this stub stores data in
 // memory so the interface contract is exercised in tests.
+//
+// @component S3BackupStorage["S3Storage"] --> S3Bucket["S3 Endpoint"]
 type S3Storage struct {
 	bucket   string
 	endpoint string

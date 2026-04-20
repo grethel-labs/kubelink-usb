@@ -15,6 +15,15 @@ import (
 )
 
 // Discovery watches local device paths and emits add/remove/change events.
+// It monitors /dev, /dev/serial, and /dev/serial/by-id using fsnotify for
+// real-time USB device hotplug detection. Events are normalized into a
+// simple add/remove/change taxonomy before being dispatched to the sink.
+//
+// @component Discovery["fsnotify Watcher"] --> Bridge["Discovery→CR Bridge"]
+// @flow WatchPaths["Watch /dev paths"] --> NormalizeEvent["Normalize event type"]
+// @flow NormalizeEvent --> FilterUSB{"USB path?"}
+// @flow FilterUSB -->|yes| DispatchSink["Dispatch to sink"]
+// @flow FilterUSB -->|no| Ignore["Ignore"]
 type Discovery struct {
 	watcher *fsnotify.Watcher
 	logger  *log.Logger
@@ -25,6 +34,7 @@ type Discovery struct {
 // DiscoveryEventType is the normalized event category.
 type DiscoveryEventType string
 
+// DiscoveryEventType constants define the normalized event categories.
 const (
 	DiscoveryEventAdd    DiscoveryEventType = "add"
 	DiscoveryEventRemove DiscoveryEventType = "remove"
