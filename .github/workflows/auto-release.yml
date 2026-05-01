@@ -1,0 +1,66 @@
+name: Auto release tag on version bump
+
+# Whenever VERSION= in project.env changes on main, create + push the
+# matching v<version> tag. Mirrors the excaliplant setup.
+#
+# Why a separate workflow:
+#   - Direct pushes to main are blocked by the "main: PR-only" ruleset,
+#     so the version bump arrives as part of the auto-patch PR.
+#   - This job only creates a tag — tag creation is allowed; only
+#     deletion / non-fast-forward are blocked on v* tags.
+#   - The tag is pushed via the SSH deploy key so any tag-triggered
+#     downstream workflow actually fires (GITHUB_TOKEN-pushed tags
+#     do not trigger workflows).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "project.env"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: auto-release-tag
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.BOT_SSH_KEY }}
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Read version
+        id: ver
+        run: |
+          V="v$(grep -E '^VERSION=' project.env | cut -d= -f2)"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "Version: $V"
+
+      - name: Skip if tag already exists
+        id: check
+        run: |
+          if git rev-parse "refs/tags/${{ steps.ver.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag ${{ steps.ver.outputs.version }} already exists; nothing to do."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create + push tag and GitHub release
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.ver.outputs.version }}" -m "Release ${{ steps.ver.outputs.version }}"
+          git push origin "${{ steps.ver.outputs.version }}"
+          gh release create "${{ steps.ver.outputs.version }}" \
+            --generate-notes \
+            --title "${{ steps.ver.outputs.version }}"

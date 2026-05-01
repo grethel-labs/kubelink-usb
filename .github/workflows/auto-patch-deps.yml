@@ -1,0 +1,110 @@
+name: Auto patch dependencies (4h)
+
+on:
+  schedule:
+    - cron: "0 */4 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: auto-patch-deps
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.BOT_SSH_KEY }}
+          persist-credentials: true
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Apply patch-level updates
+        id: patch
+        run: |
+          chmod +x scripts/auto-patch-deps.sh
+          OUT=$(scripts/auto-patch-deps.sh)
+          echo "$OUT"
+          if echo "$OUT" | grep -q "^No patch-level updates"; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            SUMMARY=$(echo "$OUT" | awk '/^---SUMMARY---$/{flag=1;next}flag')
+            {
+              echo "summary<<EOF"
+              echo "$SUMMARY"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run lint
+        if: steps.patch.outputs.changed == 'true'
+        run: make lint
+
+      - name: Run unit tests
+        if: steps.patch.outputs.changed == 'true'
+        run: make test
+
+      - name: Coverage gates
+        if: steps.patch.outputs.changed == 'true'
+        run: make coverage-check
+
+      - name: Build binaries
+        if: steps.patch.outputs.changed == 'true'
+        run: make build
+
+      - name: Helm lint
+        if: steps.patch.outputs.changed == 'true'
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          helm lint charts/kubelink-usb
+          helm template kubelink-usb charts/kubelink-usb >/dev/null
+
+      - name: Bump patch version
+        if: steps.patch.outputs.changed == 'true'
+        id: bump
+        run: |
+          OLD=$(grep -E '^VERSION=' project.env | cut -d= -f2)
+          IFS='.' read -r MA MI PA <<< "$OLD"
+          NEW="${MA}.${MI}.$((PA + 1))"
+          sed -i.bak -E "s/^VERSION=.*/VERSION=${NEW}/" project.env && rm project.env.bak
+          # Sync Helm chart version with project.env so the chart Chart.yaml
+          # version field tracks the release.
+          make sync-chart-version
+          echo "version=v${NEW}" >> "$GITHUB_OUTPUT"
+          echo "Bumped ${OLD} -> ${NEW}"
+
+      - name: Open / update auto-patch PR
+        if: steps.patch.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="auto/patch-deps"
+          NEW_VERSION="${{ steps.bump.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add go.mod go.sum project.env charts/
+          MSG=$'deps: auto-patch Go modules + release '"${NEW_VERSION}"$'\n\n${{ steps.patch.outputs.summary }}'
+          git commit -m "$MSG"
+          git push --force-with-lease origin "$BRANCH"
+
+          if ! gh pr view "$BRANCH" --json number >/dev/null 2>&1; then
+            gh pr create \
+              --base main \
+              --head "$BRANCH" \
+              --title "deps: auto-patch Go modules + release ${NEW_VERSION}" \
+              --body "Automated patch-level Go module updates and release ${NEW_VERSION}.
+
+          $(echo '${{ steps.patch.outputs.summary }}')"
+          fi
+
+          # Auto-merge once all required checks pass.
+          gh pr merge "$BRANCH" --auto --squash || true
