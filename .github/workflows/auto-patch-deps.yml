@@ -67,17 +67,32 @@ jobs:
           helm lint charts/kubelink-usb
           helm template kubelink-usb charts/kubelink-usb >/dev/null
 
+      - name: Bump patch version
+        if: steps.patch.outputs.changed == 'true'
+        id: bump
+        run: |
+          OLD=$(grep -E '^VERSION=' project.env | cut -d= -f2)
+          IFS='.' read -r MA MI PA <<< "$OLD"
+          NEW="${MA}.${MI}.$((PA + 1))"
+          sed -i.bak -E "s/^VERSION=.*/VERSION=${NEW}/" project.env && rm project.env.bak
+          # Sync Helm chart version with project.env so the chart Chart.yaml
+          # version field tracks the release.
+          make sync-chart-version
+          echo "version=v${NEW}" >> "$GITHUB_OUTPUT"
+          echo "Bumped ${OLD} -> ${NEW}"
+
       - name: Open / update auto-patch PR
         if: steps.patch.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           BRANCH="auto/patch-deps"
+          NEW_VERSION="${{ steps.bump.outputs.version }}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B "$BRANCH"
-          git add go.mod go.sum
-          MSG=$'deps: auto-patch Go modules\n\n${{ steps.patch.outputs.summary }}'
+          git add go.mod go.sum project.env charts/
+          MSG=$'deps: auto-patch Go modules + release '"${NEW_VERSION}"$'\n\n${{ steps.patch.outputs.summary }}'
           git commit -m "$MSG"
           git push --force-with-lease origin "$BRANCH"
 
@@ -85,8 +100,8 @@ jobs:
             gh pr create \
               --base main \
               --head "$BRANCH" \
-              --title "deps: auto-patch Go modules" \
-              --body "Automated patch-level Go module updates.
+              --title "deps: auto-patch Go modules + release ${NEW_VERSION}" \
+              --body "Automated patch-level Go module updates and release ${NEW_VERSION}.
 
           $(echo '${{ steps.patch.outputs.summary }}')"
           fi
